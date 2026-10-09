@@ -1,36 +1,29 @@
 import type {PostData, PostResponse} from '../transport/dto/responses.js';
 import type { PostRepositoryTypes } from '../domain/post/repository.js';
-
-let posts = [
-    {id:1, title:'python', content:'python content', author:'user1', category:'programming'},
-    {id:2, title:'js', content:'js content', author:'user2', category:'programming'}
-]
+import { db } from '../prisma/db.js';
 
 export function PostRepositories():PostRepositoryTypes{
-    function getAllPosts(category:string, take:string){
-        let filteredPosts = posts
-    
-        if(category){
-            filteredPosts = filteredPosts.filter(post => post.category === category)
+    async function getAllPosts(category:string | undefined, take:string | undefined){
+       let post = db.orm.public.Post
+
+       if(take){
+            post = post.limit(Number(take))
         }
-        if(take){
-           filteredPosts = filteredPosts.slice(0, Number(take))
-        }
-        return filteredPosts;
+
+       if(category){
+            post = post.where({ category });
+       }
+       
+       return post;
     }
     
-    function getPostById(id:number){
-        let filteredPost : PostResponse | undefined;
-        if(id){
-            filteredPost = posts.find(post => post.id === id)
-        }
-        return filteredPost
+    async function getPostById(id:number){
+        return db.orm.public.Post.where({ id }).first()
     }   
     
     async function addPost(postData:PostData){
-            const newPost = {id:posts.length + 1, ...postData}
-            posts.push(newPost)
-            return newPost
+        return db.orm.public.Post.create({ ...postData })
     }
-    return {getAllPosts, getPostById, addPost}
+    return {getAllPosts, getPostById, addPost} 
 }
+// ошибка на строке 27, подчеркивает getallposts
