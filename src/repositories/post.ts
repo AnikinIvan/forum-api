@@ -3,27 +3,20 @@ import type { PostRepositoryTypes } from '../domain/post/repository.js';
 import { db } from '../prisma/db.js';
 
 export function PostRepositories():PostRepositoryTypes{
-    async function getAllPosts(category:string | undefined, take:string | undefined){
-       let post = db.orm.public.Post
-
-       if(take){
-            post = post.limit(Number(take))
+    return {
+        async getAllPosts(category: string | undefined, take: string | undefined) {
+            const result = await db.orm.public.Post.all()
+            console.log('Posts count:', result.length)
+            return result
+        },
+         
+        async getPostById(id:number){
+            return db.orm.public.Post.where({ id }).first()
+         },
+         
+        async addPost(postData: PostData) {
+            const id = Math.floor(Math.random() * 10000) // тут неправильно, не знаю почему так - до этого не работало.
+            const result = await db.orm.public.Post.create({id, title: postData.title, content: postData.content, author: postData.author, category: postData.category})
+            return result
         }
-
-       if(category){
-            post = post.where({ category });
-       }
-       
-       return post;
-    }
-    
-    async function getPostById(id:number){
-        return db.orm.public.Post.where({ id }).first()
-    }   
-    
-    async function addPost(postData:PostData){
-        return db.orm.public.Post.create({ ...postData })
-    }
-    return {getAllPosts, getPostById, addPost} 
-}
-// ошибка на строке 27, подчеркивает getallposts
+}}

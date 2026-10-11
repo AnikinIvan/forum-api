@@ -13,7 +13,12 @@ const handlers = PostHandler(service)
 const router = PostRouter(handlers)
 
 app.use(express.json())
+app.use((req, res, next) => {
+    console.log(req.method, req.originalUrl);
+    next();
+});
 app.use('/posts', router)
+
 
 app.listen(PORT, () => {
     console.log(`Сервер работает.`);
