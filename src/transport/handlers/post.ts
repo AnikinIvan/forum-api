@@ -21,7 +21,7 @@ export function PostHandler(services:PostServicesTypes):PostHandlerTypes{
             }
         },
         
-        getPostByIdHandler(req:Request, res:Response){
+        async getPostByIdHandler(req:Request, res:Response){
             try{
                 let id = Number(req.params)
                 if(!id){
@@ -30,9 +30,9 @@ export function PostHandler(services:PostServicesTypes):PostHandlerTypes{
                 }
         
                 const post = services.getPostByIdServices(id)
-        
-                res.status(200).json(post)
                
+                res.status(200)
+
             }catch(error){
                 res.status(500).json({error:'internal server error'})
             }
@@ -45,24 +45,24 @@ export function PostHandler(services:PostServicesTypes):PostHandlerTypes{
                 const {title, content, author, category} = req.body
         
                 if (typeof title !== 'string' || title.trim().length < 1){
-                    let titleError = res.status(400).json('title посту має бути текстом')
-                    return titleError
+                    res.status(400).json('title посту має бути текстом')
+                    return 
                 }
                 if (typeof content !== 'string' || content.trim().length < 1){
-                    let contentError = res.status(400).json('content посту має бути текстом')
-                    return contentError
+                    res.status(400).json('content посту має бути текстом')
+                    return 
                 }
                 if (typeof author !== 'string' || author.trim().length < 1){
-                    let authorError = res.status(400).json('author посту довжен мати текстовий нікнейм')
-                    return authorError
+                    res.status(400).json('author посту довжен мати текстовий нікнейм')
+                    return 
                 }
                 if (typeof category !== 'string' || category.trim().length < 1){
-                    let categoryError = res.status(400).json('category посту довжен мати текстовий нікнейм')
-                    return categoryError
+                    res.status(400).json('category посту довжен мати текстовий нікнейм')
+                    return
                 }
                 if (!title || !author || !content || !category){
-                    let error = res.status(422).json('один із параметрів посту є незаповненим')
-                    return error
+                    res.status(422).json('один із параметрів посту є незаповненим')
+                    return 
                 }
                 const post = await services.addPostServices({title, content, author, category})
         
