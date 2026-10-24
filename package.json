@@ -17,6 +17,7 @@
   "dependencies": {
     "@prisma/client": "^7.10.0",
     "@prisma/orm-postgres": "^8.0.0-rc.17",
+    "argon2": "^0.45.1",
     "dotenv": "^18.0.6",
     "express": "^5.2.1",
     "tsx": "^4.23.15",
@@ -25,7 +26,7 @@
   "devDependencies": {
     "@prisma/cli-engine": "^0.7.0",
     "@types/express": "^5.0.6",
-    "@types/node": "^26.6.4",
+    "@types/node": "^26.6.5",
     "prisma": "^8.0.0-rc.22"
   }
 }

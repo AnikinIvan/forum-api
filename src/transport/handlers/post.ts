@@ -12,7 +12,7 @@ export function PostHandler(services:PostServicesTypes):PostHandlerTypes{
                     let takeError = res.status(404).json({error:'not found'})
                     return
                 }
-                const posts = services.getAllPostsServices(category, take)
+                const posts = await services.getAllPostsServices(category, take)
                 
                 res.status(200).json(posts)
                 
@@ -29,7 +29,7 @@ export function PostHandler(services:PostServicesTypes):PostHandlerTypes{
                     return 
                 }
         
-                const post = services.getPostByIdServices(id)
+                const post = await services.getPostByIdServices(id)
                
                 res.status(200)
 
