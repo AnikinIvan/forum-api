@@ -1,0 +1,15 @@
+// use prisma-8
+
+model Post {
+  id        Int    @id@default(autoincrement())
+  title     String
+  content   String
+  author    String
+  category  String
+}
+
+model User{
+  id    Int   @id@default(autoincrement())
+  email   String  @unique
+  hashPassword  String
+}
