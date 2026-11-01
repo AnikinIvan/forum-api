@@ -10,6 +10,9 @@ import { UserRepositories } from './repositories/user.js';
 import { db } from './prisma/db.js';
 import type { PasswordHash } from './services/user.types.js';
 import { hashPassword, verifyPassword } from './lib/hashpassword.js';
+import { signAccessToken, signRefreshToken, verifyRefreshToken } from './lib/jwt.js'
+import cookieParser from 'cookie-parser'
+
 
 const app = express()
 const PORT = 3000
@@ -25,11 +28,12 @@ const handlers = PostHandler(service)
 const router = PostRouter(handlers)
 
 const userRepository = UserRepositories(db)
-const userService = UserServices(userRepository, passwordHash)
+const userService = UserServices(userRepository, passwordHash, {signAccessToken, signRefreshToken, verifyRefreshToken})
 const userHandlers = UserHandler(userService)
 const userRouter = UserRouter(userHandlers)
 
 app.use(express.json())
+app.use(cookieParser())
 app.use('/posts', router)
 app.use('/user', userRouter)
 
