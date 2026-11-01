@@ -15,5 +15,8 @@ export async function hashPassword(password: string){
 }
 
 export async function verifyPassword(password: string, hash: string) {
-    return await argon2.verify(hash, password)
+    const pepper = process.env.PEPPER
+    if (!pepper) throw new Error("pepper not found")
+    const pepperBuffer = Buffer.from(pepper)
+    return await argon2.verify(hash, password, { secret: pepperBuffer })
 }

@@ -16,7 +16,7 @@ export function PostRepositories():PostRepositoryTypes{
          },
          
         async addPost(postData: PostData) {
-            const result = await db.orm.public.Post.create({title: postData.title, content: postData.content, author: postData.author, category: postData.category})
+            const result = await db.orm.public.Post.create({title: postData.title, content: postData.content, category: postData.category})
             return result
         }
 }}

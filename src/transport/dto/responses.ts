@@ -1,7 +1,7 @@
-export interface PostResponse{ // тут тоже самое
+export interface PostResponse{ 
     title:string;
     content:string;
-    author:string;
+    author?:string;
     category:string;
 }
 
