@@ -12,9 +12,9 @@ export interface AuthHandlers {
 }
 
 
-export function UserHandler(services:UserService):UserHandlerTypes{
+export function createUserHandler(services:UserService):UserHandlerTypes{
     return{
-        async findByEmailHandler(req:Request, res:Response){
+        async findByEmailHandler(req, res){
             try{
                 const {email} = req.params
                 if(typeof email !== 'string' || email.trim().length < 1){
@@ -29,7 +29,7 @@ export function UserHandler(services:UserService):UserHandlerTypes{
                 res.status(500).json({error:'internal server error'})
             }
         },
-        async createUserHandler(req:Request, res:Response){
+        async RegisterHandler(req, res){
             try{
         
                 const {email, password} = req.body
@@ -52,7 +52,7 @@ export function UserHandler(services:UserService):UserHandlerTypes{
                 res.status(500).json('internal server error')
             }
         },  
-        async login(req:Request, res:Response) {
+        async login(req, res) {
 			try {
 				const { email, password } = req.body;
 				const result = await services.login({ email, password });
@@ -81,7 +81,7 @@ export function UserHandler(services:UserService):UserHandlerTypes{
 			}
          
 		},
-        async refresh(req:Request, res:Response){
+        async refresh(req, res){
             try {
                 const refreshToken = req.cookies.refreshToken
                 if (!refreshToken) {
@@ -104,8 +104,21 @@ export function UserHandler(services:UserService):UserHandlerTypes{
                     path: "/auth",
                 })
                 res.status(200).json({ message: "Tokens refreshed" })
-        }catch{
 
+        }catch(error){
+            res.status(500).json("Internal Server Error")
+            console.log(error)
+        }
+    },
+    async me(req, res){
+        try{
+            const userId = res.locals.userId
+            console.log('userId:', userId)
+            const result = await services.me(userId)    
+            res.status(200).json(result)
+        }catch(error){
+            res.status(500).json("Internal Server Error")
+            console.log(error)
         }
     }
 }}

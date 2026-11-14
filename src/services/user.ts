@@ -40,5 +40,13 @@ export function UserServices(repository:UserRepository, hasher:PasswordHash, tok
                 refreshToken: tokenService.signRefreshToken(user.id)
             }
         },
+        async me(id:number){
+                const user = await repository.getById(id)
+                if (!user){
+                    return null
+                }
+                const { hashPassword, ...publicUser } = user
+                return publicUser
+        }
     }
 }

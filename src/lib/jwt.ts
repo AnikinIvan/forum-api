@@ -33,3 +33,15 @@ export function verifyRefreshToken(token: string): number {
 
     return userId 
 }
+
+
+export function verifyAccessToken(token: string): number {
+	const payload = jwt.verify(token, accessSecret!, {algorithms: ["HS256"]})
+    if (typeof payload === 'string' || typeof payload.sub !== 'string') {
+		throw new Error()
+	}
+    const userId = Number(payload.sub);
+    if (!Number.isSafeInteger(userId) || userId <= 0) throw new Error()
+
+    return userId 
+}

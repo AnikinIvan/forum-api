@@ -4,7 +4,7 @@ import { PostServices } from './services/post.js';
 import { PostHandler } from './transport/handlers/post.js';
 import { PostRouter } from './transport/routers/post.js';
 import { UserRouter } from './transport/routers/user.js';
-import { UserHandler } from './transport/handlers/user.js';
+import { createUserHandler } from './transport/handlers/user.js';
 import { UserServices } from './services/user.js';
 import { UserRepositories } from './repositories/user.js';
 import { db } from './prisma/db.js';
@@ -29,8 +29,8 @@ const router = PostRouter(handlers)
 
 const userRepository = UserRepositories(db)
 const userService = UserServices(userRepository, passwordHash, {signAccessToken, signRefreshToken, verifyRefreshToken})
-const userHandlers = UserHandler(userService)
-const userRouter = UserRouter(userHandlers)
+const userHandler = createUserHandler(userService)
+const userRouter = UserRouter(userHandler)
 
 app.use(express.json())
 app.use(cookieParser())

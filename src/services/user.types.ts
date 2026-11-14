@@ -9,6 +9,7 @@ export interface UserService {
     findByEmail(email: string): unknown;
     register(input: UserInput): Promise<User>;
     login(input: UserInput): Promise<{user: { id: number; email: string }; accessToken: string; refreshToken: string;}>;
+    me(id: number): Promise<PublicUser | null>
 }
 
 export interface PasswordHash {
