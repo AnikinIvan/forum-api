@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from 'cors'
 import { PostRepositories } from './repositories/post.js';
 import { PostServices } from './services/post.js';
 import { PostHandler } from './transport/handlers/post.js';
@@ -34,6 +35,7 @@ const userRouter = UserRouter(userHandler)
 
 app.use(express.json())
 app.use(cookieParser())
+app.use(cors({origin:'http://localhost:5173', credetentials:true}))
 app.use('/posts', router)
 app.use('/user', userRouter)
 
