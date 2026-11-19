@@ -8,7 +8,7 @@ export interface PostResponse{
 export interface PostData{
     title:string;
     content:string;
-    author:string;
     category:string;
+    authorId:number;
 }
 

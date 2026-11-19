@@ -35,7 +35,7 @@ const userRouter = UserRouter(userHandler)
 
 app.use(express.json())
 app.use(cookieParser())
-app.use(cors({origin:'http://localhost:5173', credetentials:true}))
+app.use(cors({origin:'http://localhost:5173', credentials:true}))
 app.use('/posts', router)
 app.use('/user', userRouter)
 
