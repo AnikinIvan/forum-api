@@ -17,6 +17,7 @@ export function PostHandler(services:PostServicesTypes):PostHandlerTypes{
                 res.status(200).json(posts)
                 
             }catch(error){
+                console.error(error)
                 res.status(500).json({error:'internal server error'})
             }
         },
@@ -39,38 +40,46 @@ export function PostHandler(services:PostServicesTypes):PostHandlerTypes{
         
         },
         
-        async addPostHandler(req:Request,res:Response){
-            try{
+        async addPostHandler(req: Request, res: Response) {
+            try {
+                const { title, content, category } = req.body;
+                const authorId = Number(res.locals.userId);
         
-                const {title, content, author, category} = req.body
+                if (typeof authorId !== 'number') {
+                    res.status(401).json({ error: 'Ви неавторизовані.' });
+                    return;
+                }
         
-                if (typeof title !== 'string' || title.trim().length < 1){
-                    res.status(400).json('title посту має бути текстом')
-                    return 
+                if (typeof title !== 'string' || !title.trim()) {
+                    res.status(400).json({ error: 'Title має бути текстом.' });
+                    return;
                 }
-                if (typeof content !== 'string' || content.trim().length < 1){
-                    res.status(400).json('content посту має бути текстом')
-                    return 
-                }
-                if (typeof author !== 'string' || author.trim().length < 1){
-                    res.status(400).json('author посту довжен мати текстовий нікнейм')
-                    return 
-                }
-                if (typeof category !== 'string' || category.trim().length < 1){
-                    res.status(400).json('category посту довжен мати текстовий нікнейм')
-                    return
-                }
-                if (!title || !author || !content || !category){
-                    res.status(422).json('один із параметрів посту є незаповненим')
-                    return 
-                }
-                const post = await services.addPostServices({title, content, author, category})
         
-                res.status(201).json(post)
+                if (typeof content !== 'string' || !content.trim()) {
+                    res.status(400).json({ error: 'Content має бути текстом.' });
+                    return;
+                }
         
-            }catch(error){
-                console.error(error)
-                res.status(500).json('internal server error')
+                if (typeof category !== 'string' || !category.trim()) {
+                    res.status(400).json({ error: 'Category має бути текстом.' });
+                    return;
+                }
+                
+                console.log({
+                    userId: res.locals.userId,
+                    authorId,
+                    authorIdType: typeof authorId,
+                    isNaN: Number.isNaN(authorId)
+                });
+
+            
+                const post = await services.addPostServices({title,content,category,authorId});
+        
+                res.status(201).json(post);
+        
+            } catch (error) {
+                console.error(error);
+                res.status(500).json({ error: 'Internal server error' });
             }
         }
     }
