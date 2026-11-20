@@ -72,7 +72,7 @@ export function PostHandler(services:PostServicesTypes):PostHandlerTypes{
                     isNaN: Number.isNaN(authorId)
                 });
 
-                
+            
                 const post = await services.addPostServices({title,content,category,authorId});
         
                 res.status(201).json(post);
