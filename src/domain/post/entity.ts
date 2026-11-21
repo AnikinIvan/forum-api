@@ -2,7 +2,10 @@ export interface Post{
     id:number;
     title:string;
     content:string;
-    author:string;
+    author: {
+        id: number
+        email: string
+    }
     category:string;
     authorId:number;
 }
