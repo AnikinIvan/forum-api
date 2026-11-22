@@ -1,0 +1,14 @@
+export interface PostResponse{ 
+    title:string;
+    content:string;
+    author?:string;
+    category:string;
+}
+
+export interface PostData{
+    title:string;
+    content:string;
+    category:string;
+    authorId:number;
+}
+
