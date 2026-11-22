@@ -68,7 +68,7 @@ export function createUserHandler(services:UserService):UserHandlerTypes{
                     secure: process.env.NODE_ENV === "production",
                     sameSite: "lax",
                     maxAge: Number(process.env.TOKEN_REFRESH_TIME),
-                    path: "/auth",
+                    path: "/",
                 });
 				res.status(200).json({ user: result.user });
 			} catch (error) {
@@ -110,12 +110,36 @@ export function createUserHandler(services:UserService):UserHandlerTypes{
             console.log(error)
         }
     },
-    async me(req, res){
+    async me(req,res){
         try{
             const userId = res.locals.userId
             console.log('userId:', userId)
             const result = await services.me(userId)    
             res.status(200).json(result)
+        }catch(error){
+            res.status(500).json("Internal Server Error")
+            console.log(error)
+        }
+    },
+    async logout(req,res){
+        const token = req.cookies?.refreshToken
+        try{
+            if (!token){
+                res.status(401).json({ message: "Unauthorized" });
+                return;
+            }
+            await services.logout(token)
+            res.clearCookie("accessToken", {
+                httpOnly: true,
+                sameSite: "lax",
+                path: "/",
+            });
+            res.clearCookie("refreshToken", {
+                httpOnly: true,
+                sameSite: "lax",
+                path: "/",
+            });
+            res.status(200).json("Logged out")
         }catch(error){
             res.status(500).json("Internal Server Error")
             console.log(error)

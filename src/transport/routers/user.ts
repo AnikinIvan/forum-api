@@ -9,6 +9,7 @@ export function UserRouter(handlers:UserHandlerTypes){
     userRouter.get('/refresh', handlers.refresh)
     userRouter.get('/:email', handlers.findByEmailHandler)      
     userRouter.post('/login', handlers.login)
+    userRouter.delete("/logout", requireAuth(), handlers.logout);
     return userRouter
 }
 

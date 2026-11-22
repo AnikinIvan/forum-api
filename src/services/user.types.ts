@@ -10,6 +10,7 @@ export interface UserService {
     register(input: UserInput): Promise<User>;
     login(input: UserInput): Promise<{user: { id: number; email: string }; accessToken: string; refreshToken: string;}>;
     me(id: number): Promise<PublicUser | null>
+    logout(hash: string): Promise<void>;
 }
 
 export interface PasswordHash {
@@ -21,6 +22,10 @@ export interface TokenService {
     signRefreshToken(id: any): string;
     verifyRefreshToken(refreshToken: string): number;
     signAccessToken(userId: number): string;
+}
+
+export interface TokenHasher {
+    hash(token: string): string
 }
 
 export type PublicUser = Omit<User, 'hashPassword'>

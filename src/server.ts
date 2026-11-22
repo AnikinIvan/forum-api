@@ -1,3 +1,4 @@
+import 'temporal-polyfill/global'
 import express from 'express';
 import cors from 'cors'
 import { PostRepositories } from './repositories/post.js';
@@ -11,8 +12,9 @@ import { UserRepositories } from './repositories/user.js';
 import { db } from './prisma/db.js';
 import type { PasswordHash } from './services/user.types.js';
 import { hashPassword, verifyPassword } from './lib/hashpassword.js';
-import { signAccessToken, signRefreshToken, verifyRefreshToken } from './lib/jwt.js'
+import { hashRefreshToken, signAccessToken, signRefreshToken, verifyRefreshToken } from './lib/jwt.js'
 import cookieParser from 'cookie-parser'
+import { createRefreshSessionRepository } from './repositories/refreshSession.js';
 
 
 const app = express()
@@ -27,9 +29,9 @@ const repository = PostRepositories()
 const service = PostServices(repository)
 const handlers = PostHandler(service)
 const router = PostRouter(handlers)
-
 const userRepository = UserRepositories(db)
-const userService = UserServices(userRepository, passwordHash, {signAccessToken, signRefreshToken, verifyRefreshToken})
+const refreshSessionRepository = createRefreshSessionRepository(db)
+const userService = UserServices(userRepository, passwordHash, { signAccessToken, signRefreshToken, verifyRefreshToken },refreshSessionRepository,{ hash: hashRefreshToken })
 const userHandler = createUserHandler(userService)
 const userRouter = UserRouter(userHandler)
 
@@ -43,3 +45,7 @@ app.use('/user', userRouter)
 app.listen(PORT, () => {
     console.log(`Сервер работает.`);
 });
+
+function hashToken(token: string): string {
+    throw new Error('Function not implemented.');
+}
