@@ -21,12 +21,18 @@ export function UserServices(
             const { hashPassword, ...publicUser } = user
             return publicUser as PublicUser
         },
-        async register(input:UserInput){
+        async register(input:UserInput, email:string){
             const passwordHash = await hasher.hash(input.password)
+            const existingUser = await repository.findByEmail(email)
+
+            if (existingUser) {
+                throw new Error("409")
+            }
                 return await repository.createUser({
                     email: input.email,
                     hashPassword: passwordHash
                 })
+
         },
         async login(input:UserInput){
             const email = input.email.trim().toLowerCase();

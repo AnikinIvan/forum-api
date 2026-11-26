@@ -48,6 +48,10 @@ export function createUserHandler(services:UserService):UserHandlerTypes{
                 res.status(201).json(user.email)
         
             }catch(error){
+                if (error instanceof Error && error.message === "409") {
+                    res.status(409).json({message: "Цей email вже зайнятий."});
+                    return;
+                }
                 console.error(error)
                 res.status(500).json('internal server error')
             }
