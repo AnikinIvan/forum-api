@@ -1,0 +1,17 @@
+import type { PostgresClient } from '@prisma/orm-postgres/runtime';
+import type { UserRepository } from '../domain/auth/repository';
+import type { Contract } from '../prisma/contract';
+
+export function UserRepositories(db: PostgresClient<Contract>): UserRepository {
+	return {
+		async findByEmail(email) {
+			return await db.orm.public.User.where({ email }).first();
+		},
+		async createUser(user) {
+			return await db.orm.public.User.create(user);
+		},
+		async getById(id: number) {
+			return await db.orm.public.User.where({ id }).first();
+		},
+	};
+}

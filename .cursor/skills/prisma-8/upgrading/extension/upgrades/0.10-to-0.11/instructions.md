@@ -1,45 +1,41 @@
 ---
+
 from: "0.10"
 to: "0.11"
 changes:
-  - id: namespace-kind-required-on-handcrafted-contract-literals
-    summary: Add the `kind` discriminator (`'sql-namespace'` for SQL namespaces; `'mongo-namespace'` for Mongo namespaces) to every handcrafted `Contract<{ namespaces: { ... } }>` type literal in extension test-d files and inline-typed fixtures. The framework `Namespace` interface tightened `kind` from optional to required; emitted `contract.d.ts` literals carry it automatically, but anything you write by hand will fail typecheck without it.
-    detection:
-      glob: "**/*.test-d.ts"
-      contains:
-        - "Contract<"
-        - "namespaces"
-      anyMatch: true
-  - id: facade-add-close-and-async-dispose
-    summary: |
-      The official Prisma 8 facades (`@internal/postgres`, `@internal/sqlite`, `@internal/mongo`) now expose `close()` and `[Symbol.asyncDispose]` so short-lived scripts can release facade-owned resources cleanly and exit instead of hanging on a live connection. Extensions that expose a facade in the same shape should add the same surface for parity, honouring the ownership rule (only close resources the facade itself constructed) and managing a terminal closed state (subsequent operations reject with a clear error). No script — manual code authoring per extension.
-    detection:
-      glob: "**/src/runtime/*.ts"
-      contains:
-        - "createRuntimeCore"
-      anyMatch: true
-  - id: mongo-close-ownership-rule
-    summary: |
-      The Mongo facade's `db.close()` is **silently breaking**. Before 0.11 it unconditionally called `await runtime.close()`, which closed the underlying `MongoClient` regardless of how the facade was constructed. From 0.11 it honours the ownership rule and closes only facade-constructed clients (from a `{ url }` binding); when the facade was constructed with `{ mongoClient }` the caller-supplied `MongoClient` is left untouched. Extensions that wrap or extend `@internal/mongo` and relied on `db.close()` disposing of a shared `MongoClient` need to either switch to a `{ url }` binding (so the facade owns the client) or close the `MongoClient` themselves.
-    detection:
-      glob: "**/*.{ts,tsx}"
-      contains:
-        - "mongoClient"
-        - "@internal/mongo"
-      anyMatch: true
-  - id: insert-single-row-wrap-in-array
-    summary: Wrap single-row `.insert({...})` call sites in an array — `.insert([{...}])`. The single-object overload is removed; `.insert()` now exclusively accepts an array of row objects.
-    detection:
-      glob: "**/*.{ts,tsx}"
-      contains:
-        - ".insert("
-      anyMatch: true
-  - id: insert-ast-with-values-to-with-rows
-    summary: Replace `InsertAst.withValues(assignments)` with `InsertAst.withRows([assignments])`. The `withValues` method is removed; `withRows` accepts an array of assignment maps.
-    detection:
-      glob: "**/*.{ts,tsx}"
-      contains:
-        - ".withValues("
+
+- id: namespace-kind-required-on-handcrafted-contract-literals
+  summary: Add the `kind` discriminator (`'sql-namespace'` for SQL namespaces; `'mongo-namespace'` for Mongo namespaces) to every handcrafted `Contract<{ namespaces: { ... } }>` type literal in extension test-d files and inline-typed fixtures. The framework `Namespace` interface tightened `kind` from optional to required; emitted `contract.d.ts` literals carry it automatically, but anything you write by hand will fail typecheck without it.
+  detection:
+  glob: "**/*.test-d.ts"
+  contains: - "Contract<" - "namespaces"
+  anyMatch: true
+- id: facade-add-close-and-async-dispose
+  summary: |
+  The official Prisma 8 facades (`@internal/postgres`, `@internal/sqlite`, `@internal/mongo`) now expose `close()` and `[Symbol.asyncDispose]` so short-lived scripts can release facade-owned resources cleanly and exit instead of hanging on a live connection. Extensions that expose a facade in the same shape should add the same surface for parity, honouring the ownership rule (only close resources the facade itself constructed) and managing a terminal closed state (subsequent operations reject with a clear error). No script — manual code authoring per extension.
+  detection:
+  glob: "**/src/runtime/*.ts"
+  contains: - "createRuntimeCore"
+  anyMatch: true
+- id: mongo-close-ownership-rule
+  summary: |
+  The Mongo facade's `db.close()` is **silently breaking**. Before 0.11 it unconditionally called `await runtime.close()`, which closed the underlying `MongoClient` regardless of how the facade was constructed. From 0.11 it honours the ownership rule and closes only facade-constructed clients (from a `{ url }` binding); when the facade was constructed with `{ mongoClient }` the caller-supplied `MongoClient` is left untouched. Extensions that wrap or extend `@internal/mongo` and relied on `db.close()` disposing of a shared `MongoClient` need to either switch to a `{ url }` binding (so the facade owns the client) or close the `MongoClient` themselves.
+  detection:
+  glob: "**/*.{ts,tsx}"
+  contains: - "mongoClient" - "@internal/mongo"
+  anyMatch: true
+- id: insert-single-row-wrap-in-array
+  summary: Wrap single-row `.insert({...})` call sites in an array — `.insert([{...}])`. The single-object overload is removed; `.insert()` now exclusively accepts an array of row objects.
+  detection:
+  glob: "**/*.{ts,tsx}"
+  contains: - ".insert("
+  anyMatch: true
+- id: insert-ast-with-values-to-with-rows
+  summary: Replace `InsertAst.withValues(assignments)` with `InsertAst.withRows([assignments])`. The `withValues` method is removed; `withRows` accepts an array of assignment maps.
+  detection:
+  glob: "**/*.{ts,tsx}"
+  contains: - ".withValues("
+
 ---
 
 # 0.10 → 0.11 — Extension-author upgrade instructions
@@ -104,11 +100,11 @@ type ContractUnderTest = Contract<
 
 ### Mapping table
 
-| Namespace family | Discriminator literal | Where it surfaces in handcrafted types |
-|---|---|---|
-| SQL (`SqlNamespace`, `SqlUnboundNamespace`) | `'sql-namespace'` | Anywhere you write `Contract<{ namespaces: { … } }>` with a SQL-style namespace |
-| Mongo (`MongoNamespace`, `MongoUnboundNamespace`) | `'mongo-namespace'` | Anywhere you write `Contract<{ namespaces: { … } }>` with a Mongo-style namespace |
-| Postgres (`PostgresSchema`, when handcrafted) | `'postgres-schema'` or `'postgres-unbound-schema'` | Rare in extension code; only needed if you handcraft a literal with a Postgres-specific namespace class |
+| Namespace family                                  | Discriminator literal                              | Where it surfaces in handcrafted types                                                                  |
+| ------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| SQL (`SqlNamespace`, `SqlUnboundNamespace`)       | `'sql-namespace'`                                  | Anywhere you write `Contract<{ namespaces: { … } }>` with a SQL-style namespace                         |
+| Mongo (`MongoNamespace`, `MongoUnboundNamespace`) | `'mongo-namespace'`                                | Anywhere you write `Contract<{ namespaces: { … } }>` with a Mongo-style namespace                       |
+| Postgres (`PostgresSchema`, when handcrafted)     | `'postgres-schema'` or `'postgres-unbound-schema'` | Rare in extension code; only needed if you handcraft a literal with a Postgres-specific namespace class |
 
 ### Detection
 
@@ -138,9 +134,9 @@ Starting at the 0.11 release the three official facades (`postgres()`, `sqlite()
 
 ```typescript
 interface ClientFacade {
-  // ...existing surface...
-  close(): Promise<void>;
-  [Symbol.asyncDispose](): Promise<void>;
+	// ...existing surface...
+	close(): Promise<void>;
+	[Symbol.asyncDispose](): Promise<void>;
 }
 ```
 
@@ -148,7 +144,7 @@ This is the surface that lets a short-lived script (`tsx my-script.ts`) release 
 
 If your extension exposes a facade in the same shape (e.g. you publish your own `postgresServerless()` or `someDriver()` factory that returns the same client object), add the equivalent surface. Three properties the surface must have:
 
-1. **Ownership rule.** `close()` releases only the resources the facade *itself* constructed. A `{ url }` (or similar opaque-string) binding means the facade opened the connection — facade owns it, `close()` disposes it. A `{ pool }` / `{ client }` / `{ mongoClient }` (caller-supplied opaque-handle) binding means the caller owns it — `close()` leaves it untouched. The facade must capture this ownership decision at construction time and remember it.
+1. **Ownership rule.** `close()` releases only the resources the facade _itself_ constructed. A `{ url }` (or similar opaque-string) binding means the facade opened the connection — facade owns it, `close()` disposes it. A `{ pool }` / `{ client }` / `{ mongoClient }` (caller-supplied opaque-handle) binding means the caller owns it — `close()` leaves it untouched. The facade must capture this ownership decision at construction time and remember it.
 
 2. **Idempotence.** `close()` can be called multiple times in a row without throwing. The second and later calls are no-ops.
 
@@ -207,8 +203,9 @@ Starting at the 0.11 release, the `.insert()` method on the SQL builder accepts 
 Before 0.11:
 
 ```ts
-const ast = InsertAst.into(TableSource.named(tableName))
-  .insert({ field: value });
+const ast = InsertAst.into(TableSource.named(tableName)).insert({
+	field: value,
+});
 // or via the query builder:
 db.sql.table.insert({ field: value }).build();
 ```
@@ -216,8 +213,9 @@ db.sql.table.insert({ field: value }).build();
 Starting at 0.11:
 
 ```ts
-const ast = InsertAst.into(TableSource.named(tableName))
-  .insert([{ field: value }]);
+const ast = InsertAst.into(TableSource.named(tableName)).insert([
+	{ field: value },
+]);
 // or via the query builder:
 db.sql.table.insert([{ field: value }]).build();
 ```
@@ -248,19 +246,20 @@ Before 0.11:
 
 ```ts
 const ast = InsertAst.into(TableSource.named(tableName))
-  .withValues(createAssignments.assignments)
-  .withOnConflict(onConflict);
+	.withValues(createAssignments.assignments)
+	.withOnConflict(onConflict);
 ```
 
 Starting at 0.11:
 
 ```ts
 const ast = InsertAst.into(TableSource.named(tableName))
-  .withRows([createAssignments.assignments])
-  .withOnConflict(onConflict);
+	.withRows([createAssignments.assignments])
+	.withOnConflict(onConflict);
 ```
 
 The change is:
+
 - Replace `.withValues(expr)` with `.withRows([expr])` — the single-row overload is removed; `withRows` accepts an array of assignment maps.
 
 Walk every `.ts` / `.tsx` file matched by the `detection.glob` above. For each call site matching `.withValues(`, apply the replacement. The argument remains a single expression; it just needs to be wrapped in an array.
@@ -271,6 +270,6 @@ After applying the rules above, run `pnpm typecheck && pnpm test` (or your exten
 
 ## Validation by execution
 
-These entries are prose-only (no scripts). The substrate diff on `packages/3-extensions/` is additive (new methods on the three official facades) plus the Mongo behaviour change documented above; the `namespace-kind-required-on-handcrafted-contract-literals` entry covers a type-only tightening with no runtime substrate transform. There is no codemod to apply against a reverted substrate — the framework changes *are* the new surfaces, and these instructions describe the consumer-side translation, not a substrate transform.
+These entries are prose-only (no scripts). The substrate diff on `packages/3-extensions/` is additive (new methods on the three official facades) plus the Mongo behaviour change documented above; the `namespace-kind-required-on-handcrafted-contract-literals` entry covers a type-only tightening with no runtime substrate transform. There is no codemod to apply against a reverted substrate — the framework changes _are_ the new surfaces, and these instructions describe the consumer-side translation, not a substrate transform.
 
 The release-pipeline gate (`pnpm check:upgrade-coverage`) is satisfied by this directory existing with at least one entry. The substantive verification of the consumer-facing translation lives in the published skill's per-step bump-install-instructions-validate-commit loop, which runs in extension authors' own CI.

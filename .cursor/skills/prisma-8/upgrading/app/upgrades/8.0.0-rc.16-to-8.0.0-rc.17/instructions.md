@@ -1,267 +1,238 @@
 ---
+
 from: "8.0.0-rc.16"
 to: "8.0.0-rc.17"
 changes:
-  - id: ts-enum-members-written-as-stored
-    summary: |
-      `defineContract` from the Postgres package now refuses a `pg/numeric@1` enum member written with a leading zero or as negative zero, such as "01.5" or "-0", and a `pg/inet@1` member Postgres prints differently, such as "10.0.0.1/32" or "::FFFF:10.0.0.1", with `CONTRACT.ENUM_INVALID`. The message says the text to write. An inet member that is not an address is refused too. Rewrite each refused member, re-emit, and apply a migration that replaces the enum's CHECK constraint.
-    detection:
-      glob: "**/*.{ts,tsx,mts,cts}"
+
+- id: ts-enum-members-written-as-stored
+  summary: |
+  `defineContract` from the Postgres package now refuses a `pg/numeric@1` enum member written with a leading zero or as negative zero, such as "01.5" or "-0", and a `pg/inet@1` member Postgres prints differently, such as "10.0.0.1/32" or "::FFFF:10.0.0.1", with `CONTRACT.ENUM_INVALID`. The message says the text to write. An inet member that is not an address is refused too. Rewrite each refused member, re-emit, and apply a migration that replaces the enum's CHECK constraint.
+  detection:
+  glob: "**/*.{ts,tsx,mts,cts}"
+  matches: - '\benumType\('
+- id: psl-enum-members-written-as-stored
+  summary: |
+  A PSL enum block is now refused at `contract emit` with `PSL_EXTENSION_INVALID_VALUE` when a member is not written as its codec stores it. On Postgres this covers `@@type("pg/numeric@1")`, `@@type("pg/inet@1")`, `@@type("pg/int8@1")`, `@@type("pg/int8number@1")` and `@@type("pg/unboundedint@1")`, with members such as "01.5", "-0", "10.0.0.1/32", "::FFFF:10.0.0.1", "007", or an inet member that is not an address. On SQLite it covers `@@type("sqlite/bigint@1")`, `@@type("sqlite/bigintnumber@1")`, `@@type("sqlite/integer@1")` and `@@type("sql/int@1")`, with members such as "007" or "-0". The message says the text to write. Rewrite each refused member and re-emit. A numeric or inet enum's CHECK constraint changes, so apply a migration that replaces it; an integer enum's contract is unchanged.
+  detection:
+  glob: "**/_.prisma"
       matches:
-        - '\benumType\('
-  - id: psl-enum-members-written-as-stored
-    summary: |
-      A PSL enum block is now refused at `contract emit` with `PSL_EXTENSION_INVALID_VALUE` when a member is not written as its codec stores it. On Postgres this covers `@@type("pg/numeric@1")`, `@@type("pg/inet@1")`, `@@type("pg/int8@1")`, `@@type("pg/int8number@1")` and `@@type("pg/unboundedint@1")`, with members such as "01.5", "-0", "10.0.0.1/32", "::FFFF:10.0.0.1", "007", or an inet member that is not an address. On SQLite it covers `@@type("sqlite/bigint@1")`, `@@type("sqlite/bigintnumber@1")`, `@@type("sqlite/integer@1")` and `@@type("sql/int@1")`, with members such as "007" or "-0". The message says the text to write. Rewrite each refused member and re-emit. A numeric or inet enum's CHECK constraint changes, so apply a migration that replaces it; an integer enum's contract is unchanged.
-    detection:
-      glob: "**/*.prisma"
+        - '@@type\(\s_"pg/(?:numeric|inet|int8|int8number|unboundedint)@1"\s*\)' - '@@type\(\s*"(?:sqlite/(?:bigint|bigintnumber|integer)|sql/int)@1"\s*\)'
+- id: numeric-inet-defaults-stored-normalised
+  summary: |
+  A numeric default written with a leading zero or as negative zero in a TypeScript `.default()`, and an inet default written in a form Postgres prints differently, in PSL or in a TypeScript `.default()`, are now stored as Postgres prints them, so emitting the contract again changes its storage hash. An inet default that is not an address is now refused. Earlier versions could not apply most such contracts: the command that applied them failed and changed nothing. Emit the contract again, then run that command again.
+  detection:
+  glob: "**/_.{prisma,ts,mts,cts,tsx}"
       matches:
-        - '@@type\(\s*"pg/(?:numeric|inet|int8|int8number|unboundedint)@1"\s*\)'
-        - '@@type\(\s*"(?:sqlite/(?:bigint|bigintnumber|integer)|sql/int)@1"\s*\)'
-  - id: numeric-inet-defaults-stored-normalised
-    summary: |
-      A numeric default written with a leading zero or as negative zero in a TypeScript `.default()`, and an inet default written in a form Postgres prints differently, in PSL or in a TypeScript `.default()`, are now stored as Postgres prints them, so emitting the contract again changes its storage hash. An inet default that is not an address is now refused. Earlier versions could not apply most such contracts: the command that applied them failed and changed nothing. Emit the contract again, then run that command again.
-    detection:
-      glob: "**/*.{prisma,ts,mts,cts,tsx}"
+        - '\bInet\b[^\n]_@default\(' - '@db\.Inet\b[^\n]_@default\(|@default\([^\n]_@db\.Inet\b' - '\.default\(\s*[''"`]-?0(?:\d|\.0*[''"`]|[''"`])' - '(?<![\s\S])(?![\s\S]*GENERATED FILE - DO NOT EDIT)[\s\S]*?(?:[''"]pg/inet@1[''"]|\bpgInetColumn\b)'
+- id: enum-codecs-refused
+  summary: |
+  An enum typed by `pg/timestamp-string@1`, `pg/timestamptz-string@1`, `pg/bytea@1` or `pg/tsquery@1` is now refused: `defineContract` from the Postgres package refuses its `enumType` with `CONTRACT.ENUM_INVALID`, and PSL refuses its `@@type` with `PSL_EXTENSION_INVALID_VALUE`. No value a query reads back can equal a member of such an enum, and a bytea enum column's CHECK constraint refused every member. Type a string timestamp enum with `pg/timestamp-temporal@1` or `pg/timestamptz-temporal@1` and write its members as Temporal values; replace a bytea or tsquery enum with a text enum. On MongoDB, `defineContract` now refuses an `enumType` typed by `mongo/json@1` or `mongo/bson@1` with `CONTRACT.ENUM_INVALID`; type it with `mongo/string@1`.
+  detection:
+  glob: "**/_.{prisma,ts,tsx,mts,cts}"
       matches:
-        - '\bInet\b[^\n]*@default\('
-        - '@db\.Inet\b[^\n]*@default\(|@default\([^\n]*@db\.Inet\b'
-        - '\.default\(\s*[''"`]-?0(?:\d|\.0*[''"`]|[''"`])'
-        - '(?<![\s\S])(?![\s\S]*GENERATED FILE - DO NOT EDIT)[\s\S]*?(?:[''"]pg/inet@1[''"]|\bpgInetColumn\b)'
-  - id: enum-codecs-refused
-    summary: |
-      An enum typed by `pg/timestamp-string@1`, `pg/timestamptz-string@1`, `pg/bytea@1` or `pg/tsquery@1` is now refused: `defineContract` from the Postgres package refuses its `enumType` with `CONTRACT.ENUM_INVALID`, and PSL refuses its `@@type` with `PSL_EXTENSION_INVALID_VALUE`. No value a query reads back can equal a member of such an enum, and a bytea enum column's CHECK constraint refused every member. Type a string timestamp enum with `pg/timestamp-temporal@1` or `pg/timestamptz-temporal@1` and write its members as Temporal values; replace a bytea or tsquery enum with a text enum. On MongoDB, `defineContract` now refuses an `enumType` typed by `mongo/json@1` or `mongo/bson@1` with `CONTRACT.ENUM_INVALID`; type it with `mongo/string@1`.
-    detection:
-      glob: "**/*.{prisma,ts,tsx,mts,cts}"
+        - '@@type\(\s_"pg/(?:timestamp(?:tz)?-string|bytea|tsquery)@1"\s*\)' - '(?<![\s\S])(?![\s\S]*GENERATED FILE - DO NOT EDIT)[\s\S]*?(?:[''"]pg/timestamp(?:tz)?-string@1[''"]|\b(?:PG_TIMESTAMP(?:TZ)?_STRING_CODEC_ID|pgTimestamp(?:tz)?StringColumn)\b)' - '(?<![\s\S])(?![\s\S]*GENERATED FILE - DO NOT EDIT)(?=[\s\S]*\benumType\()[\s\S]*?(?:[''"]pg/(?:bytea|tsquery)@1[''"]|\b(?:PG_BYTEA_CODEC_ID|PG_TSQUERY_CODEC_ID|pgByteaColumn)\b)' - '(?<![\s\S])(?![\s\S]*GENERATED FILE - DO NOT EDIT)(?=[\s\S]*\benumType\()[\s\S]*?(?:[''"]mongo/(?:json|bson)@1[''"]|\bMONGO_(?:JSON|BSON)_CODEC_ID\b)'
+- id: enum-json-codec-refused
+  summary: |
+  An enum typed by `pg/json@1` is now refused: `defineContract` refuses its `enumType` with `CONTRACT.ENUM_INVALID`, and PSL refuses its `@@type("pg/json@1")` with `PSL_EXTENSION_INVALID_VALUE`. The `json` type has no equality operator, so a scalar column never applied and a list column's new CHECK constraint refuses every insert. Type the enum with `pg/jsonb@1` and re-emit.
+  detection:
+  glob: "**/_.{prisma,ts,tsx,mts,cts}"
       matches:
-        - '@@type\(\s*"pg/(?:timestamp(?:tz)?-string|bytea|tsquery)@1"\s*\)'
-        - '(?<![\s\S])(?![\s\S]*GENERATED FILE - DO NOT EDIT)[\s\S]*?(?:[''"]pg/timestamp(?:tz)?-string@1[''"]|\b(?:PG_TIMESTAMP(?:TZ)?_STRING_CODEC_ID|pgTimestamp(?:tz)?StringColumn)\b)'
-        - '(?<![\s\S])(?![\s\S]*GENERATED FILE - DO NOT EDIT)(?=[\s\S]*\benumType\()[\s\S]*?(?:[''"]pg/(?:bytea|tsquery)@1[''"]|\b(?:PG_BYTEA_CODEC_ID|PG_TSQUERY_CODEC_ID|pgByteaColumn)\b)'
-        - '(?<![\s\S])(?![\s\S]*GENERATED FILE - DO NOT EDIT)(?=[\s\S]*\benumType\()[\s\S]*?(?:[''"]mongo/(?:json|bson)@1[''"]|\bMONGO_(?:JSON|BSON)_CODEC_ID\b)'
-  - id: enum-json-codec-refused
-    summary: |
-      An enum typed by `pg/json@1` is now refused: `defineContract` refuses its `enumType` with `CONTRACT.ENUM_INVALID`, and PSL refuses its `@@type("pg/json@1")` with `PSL_EXTENSION_INVALID_VALUE`. The `json` type has no equality operator, so a scalar column never applied and a list column's new CHECK constraint refuses every insert. Type the enum with `pg/jsonb@1` and re-emit.
-    detection:
-      glob: "**/*.{prisma,ts,tsx,mts,cts}"
+        - '@@type\(\s_"pg/json@1"\s*\)' - '(?<![\s\S])(?![\s\S]*GENERATED FILE - DO NOT EDIT)(?=[\s\S]*\benumType\()[\s\S]*?(?:[''"]pg/json@1[''"]|\b(?:PG_JSON_CODEC_ID|jsonColumn)\b)'
+- id: enum-list-check-compares-in-column-type
+  summary: |
+  The CHECK constraint on a Postgres list column typed by an enum now compares each element with the members in the column's own type, not as text, so an inet enum list takes a host address such as "127.0.0.1". The constraint's expression and name change, so re-emit the contract and apply a migration that replaces the constraint.
+  detection:
+  glob: "**/contract.json"
+  matches: - '::(?:text|numeric)\[\](?:, NULL\))? <@ ARRAY\['
+- id: integer-text-in-contract-json-refused
+  summary: |
+  A `contract.json` value on a SQLite integer codec or on `mongo/int64@1` or `mongo/int64Number@1` that is digit text with a leading zero or a minus sign on zero, such as "007" or "-0", now fails to load with `RUNTIME.DECODE_FAILED`, naming the text to write. `contract emit` never wrote such a value, so only a hand-written or edited `contract.json` is affected. Rewrite the value as the message says, or re-emit the contract.
+  detection:
+  glob: "**/contract.json"
+  matches: - '(?<![\s\S])(?=[\s\S]*"(?:sqlite/(?:bigint|bigintnumber|integer)|sql/int|mongo/int64(?:Number)?)@1")[\s\S]*"(?:-0|-?0\d+)"'
+- id: db-enums-members-hold-read-values
+  summary: |
+  `db.enums` now holds each enum member as a query returns it, where it used to hold the member as `contract.json` stores it. A member changes wherever its codec's stored JSON form is not the application value: bigint codecs, codecs that read decimal text as a number, date, time, timestamp and interval codecs, byte codecs, and non-finite float members, written as "NaN", "Infinity" or "-Infinity". `has()`, `nameOf()` and `ordinalOf()` find a value equal to a member, such as a value read from the database, and no longer find the stored form. Remove any conversion your code applied to these members or to values before passing them to `has()`.
+  detection:
+  glob: "**/_.{ts,tsx,mts,cts}"
       matches:
-        - '@@type\(\s*"pg/json@1"\s*\)'
-        - '(?<![\s\S])(?![\s\S]*GENERATED FILE - DO NOT EDIT)(?=[\s\S]*\benumType\()[\s\S]*?(?:[''"]pg/json@1[''"]|\b(?:PG_JSON_CODEC_ID|jsonColumn)\b)'
-  - id: enum-list-check-compares-in-column-type
-    summary: |
-      The CHECK constraint on a Postgres list column typed by an enum now compares each element with the members in the column's own type, not as text, so an inet enum list takes a host address such as "127.0.0.1". The constraint's expression and name change, so re-emit the contract and apply a migration that replaces the constraint.
-    detection:
-      glob: "**/contract.json"
+        - '\benums\s_(?:\.|\[)'
+- id: float-enum-columns-type-non-finite-members-as-number
+  summary: |
+  On Postgres, a column typed by a float enum (`pg/float4@1`, `pg/float8@1`, `pg/float@1`) that has a NaN, Infinity or -Infinity member is now typed `number` in `contract.d.ts`, where it was a union of the strings "NaN", "Infinity" and "-Infinity". Re-emit the contract and write those members as numbers.
+  detection:
+  glob: "**/contract.json"
+  matches: - '"codecId"\s*:\s*"pg/float(?:4|8)?@1"[\s\S]*"(?:NaN|-?Infinity)"'
+- id: psl-enum-bson-types-refused
+  summary: |
+  A Mongo PSL enum whose codec stores a BSON type that has no JSON value, such as `mongo/int64@1`, `mongo/int64Number@1`, `mongo/date@1`, `mongo/objectId@1`, `mongo/decimal128@1`, `mongo/binary@1` or `mongo/vector@1`, is now refused at `contract emit` with `PSL_EXTENSION_INVALID_VALUE`, and so is a `mongo/double@1` member written as "NaN", "Infinity" or "-Infinity". The collection validator listed such members in their JSON forms and refused every write of those fields. Change the enum to a codec whose BSON type is string, int, double, bool, object or array, or author the enum in a TypeScript contract, which has no collection validator.
+  detection:
+  glob: "**/_.prisma"
       matches:
-        - '::(?:text|numeric)\[\](?:, NULL\))? <@ ARRAY\['
-  - id: integer-text-in-contract-json-refused
-    summary: |
-      A `contract.json` value on a SQLite integer codec or on `mongo/int64@1` or `mongo/int64Number@1` that is digit text with a leading zero or a minus sign on zero, such as "007" or "-0", now fails to load with `RUNTIME.DECODE_FAILED`, naming the text to write. `contract emit` never wrote such a value, so only a hand-written or edited `contract.json` is affected. Rewrite the value as the message says, or re-emit the contract.
-    detection:
-      glob: "**/contract.json"
+        - '@@type\(\s_"mongo/(?:int64|int64Number|date|objectId|decimal128|binary|vector)@1"' - '@@type\(\s*"mongo/double@1"\s*\)[^}]*"(?:NaN|-?Infinity)"'
+- id: mongo-orm-takes-enum-accessors
+  summary: |
+  `mongoOrm()` and `createMongoCollection()` from `@prisma/orm-mongo/orm` now require the contract's enum accessors, which they check a written enum value against. Build them with `buildMongoEnums(contract, context.codecs)` from `@prisma/orm-mongo/family-runtime` and pass them as `enums`: `mongoOrm({ contract, executor, enums })`, and `createMongoCollection(contract, model, executor, enums, mutationDefaults)`, whose accessors come before the optional `mutationDefaults`. Clients built with `mongo()` need no change.
+  detection:
+  glob: "**/_.{ts,tsx,mts,cts}"
       matches:
-        - '(?<![\s\S])(?=[\s\S]*"(?:sqlite/(?:bigint|bigintnumber|integer)|sql/int|mongo/int64(?:Number)?)@1")[\s\S]*"(?:-0|-?0\d+)"'
-  - id: db-enums-members-hold-read-values
-    summary: |
-      `db.enums` now holds each enum member as a query returns it, where it used to hold the member as `contract.json` stores it. A member changes wherever its codec's stored JSON form is not the application value: bigint codecs, codecs that read decimal text as a number, date, time, timestamp and interval codecs, byte codecs, and non-finite float members, written as "NaN", "Infinity" or "-Infinity". `has()`, `nameOf()` and `ordinalOf()` find a value equal to a member, such as a value read from the database, and no longer find the stored form. Remove any conversion your code applied to these members or to values before passing them to `has()`.
-    detection:
-      glob: "**/*.{ts,tsx,mts,cts}"
+        - '\b(?:mongoOrm|createMongoCollection)\s_(?:<[^>]_>)?\s_\('
+- id: contract-dts-enum-member-types
+  summary: |
+  An emitted `contract.d.ts` now gives every namespace that declares enums an `enumMemberTypes` entry, which types each member as `db.enums` holds it. Re-emit the contract. `contract.json`, every hash and migration snapshots are unchanged.
+  detection:
+  glob: "**/contract.d.ts"
+  matches: - 'readonly enum: \{'
+- id: prisma7-schema-states-constraint-names
+  summary: |
+  A contract from `prisma7Schema(...)` now states the name of each primary key and foreign key whose Prisma 7 name differs from the name Prisma 8 derives: a `map` on `@id`, `@@id` or `@relation`, the primary key of an implicit many-to-many junction (`_PostToTag_AB_pkey`), and a foreign key name Prisma 7 cut to 63 bytes. A contract with any of these gets a new storage hash. Re-emit, then re-sign, plan a migration, or run `db update`, depending on who manages each database.
+  detection:
+  glob: "**/prisma.config.{ts,mts,cts,js,mjs}"
+  matches: - '\bprisma7Schema\s*\('
+- id: foreign-keys-name-their-backing-index
+  summary: |
+  Each foreign key in `contract.json` now states what backs it in a new `index` field: `{ "name": "<index>" }` for an index, `{ "primaryKey": true }` for the primary key, or `{ "unique": ["<column>", …] }` for a unique constraint by its columns, each one whose first columns are its columns, absent for `index: false`. Every SQL contract with a foreign key gets a new storage hash, and so does the Supabase extension's contract space. Re-emit the contract. When `prisma migration plan` then finds nothing to change in the database, follow its advice: write a migration with no operations with `prisma migration new --from <hash>`, or run `prisma db sign` on a database you manage with `prisma db init` or `prisma db update`.
+  detection:
+  glob: "**/contract.json"
+  matches: - '"foreignKeys"\s*:\s*\[\s*\{'
+- id: partial-or-typed-index-no-longer-backs-a-foreign-key
+  summary: |
+  A relation used to get no backing index when its table had any index on the same columns, including a partial index (`where:`), an index with a non-default `type` such as `hash` or `gin`, or one with `options`. Such an index does not serve every lookup a foreign key needs, so the relation now gets its own backing index, and `prisma migration plan` creates it. An index with `type: "btree"` and no options or predicate still counts as the same index. To keep the database as it is, point the relation at your index with `index: "<name>"`, or opt out with `index: false`.
+  detection:
+  glob: "**/_.{prisma,ts,mts,cts}"
       matches:
-        - '\benums\s*(?:\.|\[)'
-  - id: float-enum-columns-type-non-finite-members-as-number
-    summary: |
-      On Postgres, a column typed by a float enum (`pg/float4@1`, `pg/float8@1`, `pg/float@1`) that has a NaN, Infinity or -Infinity member is now typed `number` in `contract.d.ts`, where it was a union of the strings "NaN", "Infinity" and "-Infinity". Re-emit the contract and write those members as numbers.
-    detection:
-      glob: "**/contract.json"
+        - '@@index\([^)]_\b(?:where|type|options)\s*:' - 'constraints\.index\([^)]_\b(?:where|type|options)\s_:'
+- id: unnamed-index-on-unique-columns-left-out
+  summary: |
+  An `@@index` without `name` or `map`, with no `where`, `options` or non-default `type`, whose columns are exactly those of a unique constraint, a unique index or the primary key, is now left out of the contract, because the unique one already serves its lookups. `prisma migration plan` drops it from the database. To keep it, give it a `name` or `map`; `prisma contract emit` then warns that it duplicates the unique one.
+  detection:
+  glob: "**/_.{prisma,ts,mts,cts}"
       matches:
-        - '"codecId"\s*:\s*"pg/float(?:4|8)?@1"[\s\S]*"(?:NaN|-?Infinity)"'
-  - id: psl-enum-bson-types-refused
-    summary: |
-      A Mongo PSL enum whose codec stores a BSON type that has no JSON value, such as `mongo/int64@1`, `mongo/int64Number@1`, `mongo/date@1`, `mongo/objectId@1`, `mongo/decimal128@1`, `mongo/binary@1` or `mongo/vector@1`, is now refused at `contract emit` with `PSL_EXTENSION_INVALID_VALUE`, and so is a `mongo/double@1` member written as "NaN", "Infinity" or "-Infinity". The collection validator listed such members in their JSON forms and refused every write of those fields. Change the enum to a codec whose BSON type is string, int, double, bool, object or array, or author the enum in a TypeScript contract, which has no collection validator.
-    detection:
-      glob: "**/*.prisma"
+        - '@@index\(\s_\[[^\]]_\]\s_\)' - 'constraints\.index\(\s*\[[^\]]_\]\s_\)'
+- id: infer-and-print-write-the-relation-index-argument
+  summary: |
+  `prisma contract infer` now writes `index: false` on a relation whose only index on its columns is partial, has a non-default type (such as `hash` or `gin`) or has options, where it used to write nothing, and `index: "<name>"` on a relation whose columns lead a named key or a plain index with more columns, where it used to write `index: false`. `prisma contract print` writes `index: "<name>"` on a relation backed by such an index, nothing on a relation backed by its default index or a key, and `index: false` only where nothing backs the foreign key. Re-running either command can change the `@relation` lines it writes; review the diff.
+  detection:
+  glob: "**/_.prisma"
       matches:
-        - '@@type\(\s*"mongo/(?:int64|int64Number|date|objectId|decimal128|binary|vector)@1"'
-        - '@@type\(\s*"mongo/double@1"\s*\)[^}]*"(?:NaN|-?Infinity)"'
-  - id: mongo-orm-takes-enum-accessors
-    summary: |
-      `mongoOrm()` and `createMongoCollection()` from `@prisma/orm-mongo/orm` now require the contract's enum accessors, which they check a written enum value against. Build them with `buildMongoEnums(contract, context.codecs)` from `@prisma/orm-mongo/family-runtime` and pass them as `enums`: `mongoOrm({ contract, executor, enums })`, and `createMongoCollection(contract, model, executor, enums, mutationDefaults)`, whose accessors come before the optional `mutationDefaults`. Clients built with `mongo()` need no change.
-    detection:
-      glob: "**/*.{ts,tsx,mts,cts}"
+        - '@relation\([^)]_\bindex\s*:'
+- id: mongo-index-sort-function
+  summary: Replace MongoDB PSL field sort modifiers with sort(field, direction).
+- id: non-data-drops-are-widening
+  summary: |
+  Dropping an index, a unique or foreign-key constraint, a check, a row-level-security policy, a default or a native enum type, and disabling row-level security, are now `widening` operations on Postgres and SQLite. They no longer count as data loss, so `prisma db update` and `prisma migration plan` do not ask about them as data loss; `db update` asks about the row-level-security changes as access changes instead. `--confirm` no longer consents to anything; see `db-update-confirm-no-longer-consents` and `migration-plan-refuses-data-loss`.
+  detection:
+  glob: "**/*.{sh,bash,zsh,yml,yaml,json,toml,mjs,cjs,js,ts,mts,cts}"
+  matches: - '(?<![\w-])--confirm(?![\w-])'
+- id: rename-statements
+  summary: |
+  `prisma migration plan` and `prisma db update` accept `--rename <old>:<new>`, repeatable, to rename a model or a field instead of dropping and creating its table or column. Each side is `Model`, `namespace.Model`, `Model.field` or `namespace.Model.field`, and a field's model is named as the new contract names it: `--rename Profile:User --rename User.name:User.fullName`.
+- id: destructive-means-data-loss
+  summary: |
+  An operation is `destructive` only when it can lose rows or values. Postgres `setNotNull` and the type changes that keep every value (`int2` to `int4` to `int8`, `float4` to `float8`), a SQLite table rebuild that only changes nullability, and MongoDB `dropIndex`, `setValidation`, `collMod` and the planner's validator and change-stream image changes are now `widening`. Running an existing `migration.ts` again writes `widening` for these operations in `ops.json`, and a new `migrationHash`.
+  detection:
+  glob: "**/migration.ts"
+  matches: - '\bsetNotNull\(' - '(?<![\w$.])(?:dropIndex|setValidation|collMod)\('
+- id: migration-plan-refuses-data-loss
+  summary: |
+  `prisma migration plan` refuses every plan that would lose data, not only an auto-baseline, until each operation that would is answered: `--delete <subject>` lets the data go, `--rename <subject>:<new name>` keeps it. Where nobody can answer it fails with `CLI.CONSENT_REQUIRED`, whose `nextActions` name the flags. `--confirm` answers none of these questions.
+  detection:
+  glob: "**/*.{sh,bash,zsh,yml,yaml,json,toml,mjs,cjs,js,ts,mts,cts}"
+  matches: - '(?<![\w-])migration\s+plan(?![\w-])'
+- id: db-update-confirm-no-longer-consents
+  summary: |
+  `prisma db update --confirm <database>` no longer consents to data loss. An apply asks about each operation that would lose data, answered by `--delete <Model|Model.field>` or `--rename`, and about each that would widen who can read or write a model's rows, answered by `--allow <Model>`. Without them it fails with `CLI.CONSENT_REQUIRED` where nobody can answer.
+  detection:
+  glob: "**/_.{sh,bash,zsh,yml,yaml,json,toml,mjs,cjs,js,ts,mts,cts}"
       matches:
-        - '\b(?:mongoOrm|createMongoCollection)\s*(?:<[^>]*>)?\s*\('
-  - id: contract-dts-enum-member-types
-    summary: |
-      An emitted `contract.d.ts` now gives every namespace that declares enums an `enumMemberTypes` entry, which types each member as `db.enums` holds it. Re-emit the contract. `contract.json`, every hash and migration snapshots are unchanged.
-    detection:
-      glob: "**/contract.d.ts"
-      matches:
-        - 'readonly enum: \{'
-  - id: prisma7-schema-states-constraint-names
-    summary: |
-      A contract from `prisma7Schema(...)` now states the name of each primary key and foreign key whose Prisma 7 name differs from the name Prisma 8 derives: a `map` on `@id`, `@@id` or `@relation`, the primary key of an implicit many-to-many junction (`_PostToTag_AB_pkey`), and a foreign key name Prisma 7 cut to 63 bytes. A contract with any of these gets a new storage hash. Re-emit, then re-sign, plan a migration, or run `db update`, depending on who manages each database.
-    detection:
-      glob: "**/prisma.config.{ts,mts,cts,js,mjs}"
-      matches:
-        - '\bprisma7Schema\s*\('
-  - id: foreign-keys-name-their-backing-index
-    summary: |
-      Each foreign key in `contract.json` now states what backs it in a new `index` field: `{ "name": "<index>" }` for an index, `{ "primaryKey": true }` for the primary key, or `{ "unique": ["<column>", …] }` for a unique constraint by its columns, each one whose first columns are its columns, absent for `index: false`. Every SQL contract with a foreign key gets a new storage hash, and so does the Supabase extension's contract space. Re-emit the contract. When `prisma migration plan` then finds nothing to change in the database, follow its advice: write a migration with no operations with `prisma migration new --from <hash>`, or run `prisma db sign` on a database you manage with `prisma db init` or `prisma db update`.
-    detection:
-      glob: "**/contract.json"
-      matches:
-        - '"foreignKeys"\s*:\s*\[\s*\{'
-  - id: partial-or-typed-index-no-longer-backs-a-foreign-key
-    summary: |
-      A relation used to get no backing index when its table had any index on the same columns, including a partial index (`where:`), an index with a non-default `type` such as `hash` or `gin`, or one with `options`. Such an index does not serve every lookup a foreign key needs, so the relation now gets its own backing index, and `prisma migration plan` creates it. An index with `type: "btree"` and no options or predicate still counts as the same index. To keep the database as it is, point the relation at your index with `index: "<name>"`, or opt out with `index: false`.
-    detection:
-      glob: "**/*.{prisma,ts,mts,cts}"
-      matches:
-        - '@@index\([^)]*\b(?:where|type|options)\s*:'
-        - 'constraints\.index\([^)]*\b(?:where|type|options)\s*:'
-  - id: unnamed-index-on-unique-columns-left-out
-    summary: |
-      An `@@index` without `name` or `map`, with no `where`, `options` or non-default `type`, whose columns are exactly those of a unique constraint, a unique index or the primary key, is now left out of the contract, because the unique one already serves its lookups. `prisma migration plan` drops it from the database. To keep it, give it a `name` or `map`; `prisma contract emit` then warns that it duplicates the unique one.
-    detection:
-      glob: "**/*.{prisma,ts,mts,cts}"
-      matches:
-        - '@@index\(\s*\[[^\]]*\]\s*\)'
-        - 'constraints\.index\(\s*\[[^\]]*\]\s*\)'
-  - id: infer-and-print-write-the-relation-index-argument
-    summary: |
-      `prisma contract infer` now writes `index: false` on a relation whose only index on its columns is partial, has a non-default type (such as `hash` or `gin`) or has options, where it used to write nothing, and `index: "<name>"` on a relation whose columns lead a named key or a plain index with more columns, where it used to write `index: false`. `prisma contract print` writes `index: "<name>"` on a relation backed by such an index, nothing on a relation backed by its default index or a key, and `index: false` only where nothing backs the foreign key. Re-running either command can change the `@relation` lines it writes; review the diff.
-    detection:
-      glob: "**/*.prisma"
-      matches:
-        - '@relation\([^)]*\bindex\s*:'
-  - id: mongo-index-sort-function
-    summary: Replace MongoDB PSL field sort modifiers with sort(field, direction).
-  - id: non-data-drops-are-widening
-    summary: |
-      Dropping an index, a unique or foreign-key constraint, a check, a row-level-security policy, a default or a native enum type, and disabling row-level security, are now `widening` operations on Postgres and SQLite. They no longer count as data loss, so `prisma db update` and `prisma migration plan` do not ask about them as data loss; `db update` asks about the row-level-security changes as access changes instead. `--confirm` no longer consents to anything; see `db-update-confirm-no-longer-consents` and `migration-plan-refuses-data-loss`.
-    detection:
-      glob: "**/*.{sh,bash,zsh,yml,yaml,json,toml,mjs,cjs,js,ts,mts,cts}"
-      matches:
-        - '(?<![\w-])--confirm(?![\w-])'
-  - id: rename-statements
-    summary: |
-      `prisma migration plan` and `prisma db update` accept `--rename <old>:<new>`, repeatable, to rename a model or a field instead of dropping and creating its table or column. Each side is `Model`, `namespace.Model`, `Model.field` or `namespace.Model.field`, and a field's model is named as the new contract names it: `--rename Profile:User --rename User.name:User.fullName`.
-  - id: destructive-means-data-loss
-    summary: |
-      An operation is `destructive` only when it can lose rows or values. Postgres `setNotNull` and the type changes that keep every value (`int2` to `int4` to `int8`, `float4` to `float8`), a SQLite table rebuild that only changes nullability, and MongoDB `dropIndex`, `setValidation`, `collMod` and the planner's validator and change-stream image changes are now `widening`. Running an existing `migration.ts` again writes `widening` for these operations in `ops.json`, and a new `migrationHash`.
-    detection:
-      glob: "**/migration.ts"
-      matches:
-        - '\bsetNotNull\('
-        - '(?<![\w$.])(?:dropIndex|setValidation|collMod)\('
-  - id: migration-plan-refuses-data-loss
-    summary: |
-      `prisma migration plan` refuses every plan that would lose data, not only an auto-baseline, until each operation that would is answered: `--delete <subject>` lets the data go, `--rename <subject>:<new name>` keeps it. Where nobody can answer it fails with `CLI.CONSENT_REQUIRED`, whose `nextActions` name the flags. `--confirm` answers none of these questions.
-    detection:
-      glob: "**/*.{sh,bash,zsh,yml,yaml,json,toml,mjs,cjs,js,ts,mts,cts}"
-      matches:
-        - '(?<![\w-])migration\s+plan(?![\w-])'
-  - id: db-update-confirm-no-longer-consents
-    summary: |
-      `prisma db update --confirm <database>` no longer consents to data loss. An apply asks about each operation that would lose data, answered by `--delete <Model|Model.field>` or `--rename`, and about each that would widen who can read or write a model's rows, answered by `--allow <Model>`. Without them it fails with `CLI.CONSENT_REQUIRED` where nobody can answer.
-    detection:
-      glob: "**/*.{sh,bash,zsh,yml,yaml,json,toml,mjs,cjs,js,ts,mts,cts}"
-      matches:
-        - 'db\s+update(?:[^\n\\]|\\\r?\n|\\.)*(?<![\w-])--confirm(?![\w-])'
-  - id: db-update-reads-origin-snapshot
-    summary: |
-      `prisma db update` reads the snapshot of the contract the database is at on every run, to name what an operation would lose. Nothing to change.
-  - id: control-api-answer-questions
-    summary: |
-      In `@prisma/orm-toolchain/cli/control-api`, `executeMigrationPlanCommand` and `executeDbUpdate`, and the control client's `dbUpdate`, require an `answerQuestions` callback; `consent` and `carryEmittedExtensionDirs` are gone. `delete` and `allow` statements in `statements` answer questions without asking, and one that answers none fails with `MIGRATION.STATEMENT_ANSWERS_NO_QUESTION`. `acceptDataLoss: true` no longer answers access-widening questions; `acceptAccessWidening: true` does.
-    detection:
-      glob: "**/*.{ts,mts,cts,js,mjs,cjs}"
+        - 'db\s+update(?:[^\n\\]|\\\r?\n|\\.)_(?<![\w-])--confirm(?![\w-])'
+- id: db-update-reads-origin-snapshot
+  summary: |
+  `prisma db update` reads the snapshot of the contract the database is at on every run, to name what an operation would lose. Nothing to change.
+- id: control-api-answer-questions
+  summary: |
+  In `@prisma/orm-toolchain/cli/control-api`, `executeMigrationPlanCommand` and `executeDbUpdate`, and the control client's `dbUpdate`, require an `answerQuestions` callback; `consent` and `carryEmittedExtensionDirs` are gone. `delete` and `allow` statements in `statements` answer questions without asking, and one that answers none fails with `MIGRATION.STATEMENT_ANSWERS_NO_QUESTION`. `acceptDataLoss: true` no longer answers access-widening questions; `acceptAccessWidening: true` does.
+  detection:
+  glob: "**/_.{ts,mts,cts,js,mjs,cjs}"
       matches:
         - '(?<![\w$])(?:executeMigrationPlanCommand|executeDbUpdate)\s*\('
-        - '\.dbUpdate\s*\('
-        - '(?<![\w$])carryEmittedExtensionDirs(?![\w$])'
-  - id: applied-statement-report-verb
-    summary: |
-      `AppliedStatementReport` from `@prisma/orm-toolchain/cli/control-api` is a union discriminated by `verb` (`rename`, `delete` or `allow`), and `StatementVerb` is `'rename' | 'delete' | 'allow'`. Narrow on `verb === 'rename'` before reading a rename's `statement`.
-    detection:
-      glob: "**/*.{ts,mts,cts}"
+        - '\.dbUpdate\s_\(' - '(?<![\w$])carryEmittedExtensionDirs(?![\w$])'
+- id: applied-statement-report-verb
+  summary: |
+  `AppliedStatementReport` from `@prisma/orm-toolchain/cli/control-api` is a union discriminated by `verb` (`rename`, `delete` or `allow`), and `StatementVerb` is `'rename' | 'delete' | 'allow'`. Narrow on `verb === 'rename'` before reading a rename's `statement`.
+  detection:
+  glob: "**/*.{ts,mts,cts}"
+  matches: - '(?<![\w$])(?:AppliedStatementReport|StatementVerb)(?![\w$])'
+- id: consent-errors-removed
+  summary: |
+  `ERROR_CODE_DESTRUCTIVE_CHANGES`, `errorDestructiveChanges`, `ERROR_CODE_CONSENT_PLAN_MISMATCH` and `errorConsentPlanMismatch` are removed from `@prisma/orm-framework/errors/execution`; `DbUpdateFailureCode` loses `'DESTRUCTIVE_CHANGES'` and `'CONSENT_PLAN_MISMATCH'`, and `DbUpdateFailure` loses `destructiveChanges` and `consentPlanMismatch`. The codes `MIGRATION.DESTRUCTIVE_CHANGES`, `MIGRATION.CONSENT_PLAN_MISMATCH`, `CLI.CONSENT_TOKEN_UNRESOLVED` and `CLI.CONSENT_OPERATIONS_MISSING` are no longer raised.
+  detection:
+  glob: "**/*.{ts,mts,cts,js,mjs,cjs,sh,bash,zsh,yml,yaml,json}"
+  matches: - '(?<![\w$])(?:ERROR_CODE_DESTRUCTIVE_CHANGES|errorDestructiveChanges|ERROR_CODE_CONSENT_PLAN_MISMATCH|errorConsentPlanMismatch|destructiveChanges|consentPlanMismatch)(?![\w$])' - '(?<![\w])(?:DESTRUCTIVE_CHANGES|CONSENT_PLAN_MISMATCH|CONSENT_TOKEN_UNRESOLVED|CONSENT_OPERATIONS_MISSING)(?![\w])'
+- id: collection-apply-is-now-with
+  summary: |
+  The collection method `apply(fn)` is renamed to `with(fn)`. Rename every call on a collection of the SQL ORM client, such as `db.orm.public.Post.apply(notDeleted)` or `posts.apply((p) => p.limit(10))`, to `.with(...)`. The detection matches `.apply(` only when its first argument is a name followed by `)`, `(` or `=>`, or an arrow function, because `Function.prototype.apply` (`fn.apply(this, args)`) and `Reflect.apply` share the name; it can still match a `Function.prototype.apply` call with one argument. Rename only where the receiver is a collection.
+  detection:
+  glob: "**/_.{ts,mts,cts,tsx}"
       matches:
-        - '(?<![\w$])(?:AppliedStatementReport|StatementVerb)(?![\w$])'
-  - id: consent-errors-removed
-    summary: |
-      `ERROR_CODE_DESTRUCTIVE_CHANGES`, `errorDestructiveChanges`, `ERROR_CODE_CONSENT_PLAN_MISMATCH` and `errorConsentPlanMismatch` are removed from `@prisma/orm-framework/errors/execution`; `DbUpdateFailureCode` loses `'DESTRUCTIVE_CHANGES'` and `'CONSENT_PLAN_MISMATCH'`, and `DbUpdateFailure` loses `destructiveChanges` and `consentPlanMismatch`. The codes `MIGRATION.DESTRUCTIVE_CHANGES`, `MIGRATION.CONSENT_PLAN_MISMATCH`, `CLI.CONSENT_TOKEN_UNRESOLVED` and `CLI.CONSENT_OPERATIONS_MISSING` are no longer raised.
-    detection:
-      glob: "**/*.{ts,mts,cts,js,mjs,cjs,sh,bash,zsh,yml,yaml,json}"
+        - '\.apply\s_\(\s*(?:\(|[A-Za-z_$][\w$.]_\s_(?:\)|\(|=>))'
+- id: with-is-a-collection-member
+  summary: |
+  Every collection now has a `with` method instead of `apply`. A custom collection class that declares its own `with` member with another signature no longer compiles; rename it. An aggregate operation named `with` is refused with `ORM.AGGREGATE_OPERATION_RESERVED`.
+  detection:
+  glob: "**/_.{ts,mts,cts,tsx}"
       matches:
-        - '(?<![\w$])(?:ERROR_CODE_DESTRUCTIVE_CHANGES|errorDestructiveChanges|ERROR_CODE_CONSENT_PLAN_MISMATCH|errorConsentPlanMismatch|destructiveChanges|consentPlanMismatch)(?![\w$])'
-        - '(?<![\w])(?:DESTRUCTIVE_CHANGES|CONSENT_PLAN_MISMATCH|CONSENT_TOKEN_UNRESOLVED|CONSENT_OPERATIONS_MISSING)(?![\w])'
-  - id: collection-apply-is-now-with
-    summary: |
-      The collection method `apply(fn)` is renamed to `with(fn)`. Rename every call on a collection of the SQL ORM client, such as `db.orm.public.Post.apply(notDeleted)` or `posts.apply((p) => p.limit(10))`, to `.with(...)`. The detection matches `.apply(` only when its first argument is a name followed by `)`, `(` or `=>`, or an arrow function, because `Function.prototype.apply` (`fn.apply(this, args)`) and `Reflect.apply` share the name; it can still match a `Function.prototype.apply` call with one argument. Rename only where the receiver is a collection.
-    detection:
-      glob: "**/*.{ts,mts,cts,tsx}"
+        - '(?:^|\n)[ \t]_(?:(?:public|protected|private|readonly|static|async|override)\s+)_with\s_[(<:=?]'
+- id: orm-scope-is-now-fragment
+  summary: |
+  The SQL ORM client's `scope` methods are renamed to `fragment`: `db.orm.scope(fields, body)` is now `db.orm.fragment(fields, body)`, and `collection.scope(body)`, such as `db.orm.public.Post.scope(...)`, is now `collection.fragment(body)`. Rename each use whose receiver is the ORM client or a collection, including `typeof db.orm.scope` and `const { scope } = db.orm`. The detection matches every `.scope(` call; leave calls on other objects as they are.
+  detection:
+  glob: "**/_.{ts,mts,cts,tsx}"
       matches:
-        - '\.apply\s*\(\s*(?:\(|[A-Za-z_$][\w$.]*\s*(?:\)|\(|=>))'
-  - id: with-is-a-collection-member
-    summary: |
-      Every collection now has a `with` method instead of `apply`. A custom collection class that declares its own `with` member with another signature no longer compiles; rename it. An aggregate operation named `with` is refused with `ORM.AGGREGATE_OPERATION_RESERVED`.
-    detection:
-      glob: "**/*.{ts,mts,cts,tsx}"
-      matches:
-        - '(?:^|\n)[ \t]*(?:(?:public|protected|private|readonly|static|async|override)\s+)*with\s*[(<:=?]'
-  - id: orm-scope-is-now-fragment
-    summary: |
-      The SQL ORM client's `scope` methods are renamed to `fragment`: `db.orm.scope(fields, body)` is now `db.orm.fragment(fields, body)`, and `collection.scope(body)`, such as `db.orm.public.Post.scope(...)`, is now `collection.fragment(body)`. Rename each use whose receiver is the ORM client or a collection, including `typeof db.orm.scope` and `const { scope } = db.orm`. The detection matches every `.scope(` call; leave calls on other objects as they are.
-    detection:
-      glob: "**/*.{ts,mts,cts,tsx}"
-      matches:
-        - '\.scope\s*[(<]'
-        - '\btypeof\s+[\w$.]*\.scope\b'
-        - '\{[^}]*\bscope\b[^}]*\}\s*=\s*[\w$.]*\borm\b'
-  - id: orm-scope-types-are-now-fragment-types
-    summary: |
-      The types `Scope`, `FieldScope` and `ScopeFacts` exported by the SQL ORM client (`@prisma/orm-postgres/orm-client` and the other facades' `orm-client` entries) are renamed to `Fragment`, `FieldFragment` and `FragmentFacts`. The SQL builder's own `Scope` and `ScopeField` types are a different thing and keep their names; the detection matches `Scope` only in an import or re-export from an `orm-client` entry, or after a namespace import of one.
-    detection:
-      glob: "**/*.{ts,mts,cts,tsx}"
+        - '\.scope\s_[(<]' - '\btypeof\s+[\w$.]_\.scope\b'
+        - '\{[^}]_\bscope\b[^}]_\}\s_=\s*[\w$.]*\borm\b'
+- id: orm-scope-types-are-now-fragment-types
+  summary: |
+  The types `Scope`, `FieldScope` and `ScopeFacts` exported by the SQL ORM client (`@prisma/orm-postgres/orm-client` and the other facades' `orm-client` entries) are renamed to `Fragment`, `FieldFragment` and `FragmentFacts`. The SQL builder's own `Scope` and `ScopeField` types are a different thing and keep their names; the detection matches `Scope` only in an import or re-export from an `orm-client` entry, or after a namespace import of one.
+  detection:
+  glob: "**/_.{ts,mts,cts,tsx}"
       matches:
         - '\b(?:FieldScope|ScopeFacts)\b'
-        - '(?:import|export)\s+(?:type\s+)?\{[^}]*\bScope\b[^}]*\}\s*from\s*[''"]@prisma/[\w-]+/orm-client[''"]'
-        - 'import\s+(?:type\s+)?\*\s+as\s+([\w$]+)\s+from\s*[''"]@prisma/[\w-]+/orm-client[''"][\s\S]*\b\1\.Scope\b'
-  - id: fragment-is-a-collection-member
-    summary: |
-      Every collection now has a `fragment` method instead of `scope`. A custom collection class that declares its own `fragment` member with another signature no longer compiles; rename it. An aggregate operation named `fragment` is refused with `ORM.AGGREGATE_OPERATION_RESERVED`. The name `scope` is free again. The detection matches a member named `fragment` only in a file that extends `Collection`, and an aggregate operation declared as `operation: 'fragment'`.
-    detection:
-      glob: "**/*.{ts,mts,cts,tsx}"
+        - '(?:import|export)\s+(?:type\s+)?\{[^}]_\bScope\b[^}]*\}\s*from\s*[''"]@prisma/[\w-]+/orm-client[''"]' - 'import\s+(?:type\s+)?\*\s+as\s+([\w$]+)\s+from\s*[''"]@prisma/[\w-]+/orm-client[''"][\s\S]*\b\1\.Scope\b'
+- id: fragment-is-a-collection-member
+  summary: |
+  Every collection now has a `fragment` method instead of `scope`. A custom collection class that declares its own `fragment` member with another signature no longer compiles; rename it. An aggregate operation named `fragment` is refused with `ORM.AGGREGATE_OPERATION_RESERVED`. The name `scope` is free again. The detection matches a member named `fragment` only in a file that extends `Collection`, and an aggregate operation declared as `operation: 'fragment'`.
+  detection:
+  glob: "**/_.{ts,mts,cts,tsx}"
       matches:
         - '(?<![\s\S])(?=[\s\S]*\bextends\s+Collection\b)[\s\S]*\n[ \t]*(?:(?:public|protected|private|readonly|static|async|override|get|set)\s+)*fragment\s*(?:\?\s*)?[(<:=]'
-        - '\boperation\s*:\s*[''"]fragment[''"]'
-  - id: namespace-named-fragment-hides-the-client-method
-    summary: |
-      A contract namespace named `fragment` now takes the name of the client's `fragment` method, so `db.orm.fragment` is that namespace and the client has no method to make a fragment for any model; code that called `db.orm.scope(fields, body)` with such a contract must make its fragments another way. A namespace named `scope` no longer hides anything.
-    detection:
-      glob: "**/*.prisma"
-      matches:
-        - '(?:^|\n)[ \t]*namespace\s+fragment\b'
-  - id: fragment-error-texts
-    summary: |
-      Errors and compile errors about these functions say "fragment" where they said "scope", such as `Cannot define the fragment: the body is not a function` and `Pass the fragment to with on a collection: collection.with(fragment).` Update tests that assert on the old text.
-    detection:
-      glob: "**/*.{ts,mts,cts,tsx}"
-      matches:
-        - 'Cannot (?:define|apply) (?:the|a) scope|Pass the scope to with|Run the scope with apply|A scope (?:passed to with|applied with apply)|The scope was (?:made|declared)|the scope could not read the model|declaration in the scope'
-  - id: orm-collections-lock-rows
-    summary: "ORM collections gain forUpdate(), forNoKeyUpdate(), forShare() and forKeyShare(), which need the same capability keys as the SQL builder's row-locking methods and also sql.lockOf; a contract emitted before this release does not carry them and the methods are unavailable against it, so re-emit the contract before using them."
-    detection:
-      glob: "**/contract.json"
-      contains:
-        - '"distinctOn"'
-  - id: contract-artifacts-restamp
-    summary: |
-      An extension that writes its own package version into the contracts it emits, such as the
-      Supabase extension, now writes 8.0.0-rc.17. Run `contract emit` once after upgrading so the
-      emitted `contract.json` and `contract.d.ts` match the installed extension.
-    detection:
-      glob: "**/contract.json"
-      contains:
-        - '"version": "8.0.0-rc.16"'
+        - '\boperation\s_:\s*[''"]fragment[''"]'
+- id: namespace-named-fragment-hides-the-client-method
+  summary: |
+  A contract namespace named `fragment` now takes the name of the client's `fragment` method, so `db.orm.fragment` is that namespace and the client has no method to make a fragment for any model; code that called `db.orm.scope(fields, body)` with such a contract must make its fragments another way. A namespace named `scope` no longer hides anything.
+  detection:
+  glob: "**/*.prisma"
+  matches: - '(?:^|\n)[ \t]*namespace\s+fragment\b'
+- id: fragment-error-texts
+  summary: |
+  Errors and compile errors about these functions say "fragment" where they said "scope", such as `Cannot define the fragment: the body is not a function` and `Pass the fragment to with on a collection: collection.with(fragment).` Update tests that assert on the old text.
+  detection:
+  glob: "**/*.{ts,mts,cts,tsx}"
+  matches: - 'Cannot (?:define|apply) (?:the|a) scope|Pass the scope to with|Run the scope with apply|A scope (?:passed to with|applied with apply)|The scope was (?:made|declared)|the scope could not read the model|declaration in the scope'
+- id: orm-collections-lock-rows
+  summary: "ORM collections gain forUpdate(), forNoKeyUpdate(), forShare() and forKeyShare(), which need the same capability keys as the SQL builder's row-locking methods and also sql.lockOf; a contract emitted before this release does not carry them and the methods are unavailable against it, so re-emit the contract before using them."
+  detection:
+  glob: "**/contract.json"
+  contains: - '"distinctOn"'
+- id: contract-artifacts-restamp
+  summary: |
+  An extension that writes its own package version into the contracts it emits, such as the
+  Supabase extension, now writes 8.0.0-rc.17. Run `contract emit` once after upgrading so the
+  emitted `contract.json` and `contract.d.ts` match the installed extension.
+  detection:
+  glob: "**/contract.json"
+  contains: - '"version": "8.0.0-rc.16"'
+
 ---
 
 # 8.0.0-rc.16 → 8.0.0-rc.17 — User upgrade instructions
@@ -311,13 +282,13 @@ Earlier versions stored such a member in that form, so rewrite it as the message
 
 A default is converted rather than refused, as a uuid default already is:
 
-| Written | Stored |
-| --- | --- |
-| `.default('01.5')` on `pg/numeric@1` | `"1.5"` |
-| `.default('-0')` on `pg/numeric@1` | `"0"` |
-| `@default("10.0.0.1/32")` on `Inet`, or `.default('10.0.0.1/32')` on `pg/inet@1` | `"10.0.0.1"` |
-| `@default("::FFFF:10.0.0.1")` on `Inet`, or the same `.default()` on `pg/inet@1` | `"::ffff:10.0.0.1"` |
-| `@default("not an address")` on `Inet` | refused, `PSL_INVALID_LITERAL` |
+| Written                                                                          | Stored                         |
+| -------------------------------------------------------------------------------- | ------------------------------ |
+| `.default('01.5')` on `pg/numeric@1`                                             | `"1.5"`                        |
+| `.default('-0')` on `pg/numeric@1`                                               | `"0"`                          |
+| `@default("10.0.0.1/32")` on `Inet`, or `.default('10.0.0.1/32')` on `pg/inet@1` | `"10.0.0.1"`                   |
+| `@default("::FFFF:10.0.0.1")` on `Inet`, or the same `.default()` on `pg/inet@1` | `"::ffff:10.0.0.1"`            |
+| `@default("not an address")` on `Inet`                                           | refused, `PSL_INVALID_LITERAL` |
 
 A PSL numeric default was already converted: `@default(01.5)` was stored as `"1.5"`.
 
@@ -457,7 +428,10 @@ Code that builds the Mongo ORM itself, rather than through `mongo()`, passes the
 Before:
 
 ```ts
-import { createMongoExecutionContext, createMongoRuntime } from '@prisma/orm-mongo/family-runtime';
+import {
+	createMongoExecutionContext,
+	createMongoRuntime,
+} from '@prisma/orm-mongo/family-runtime';
 import { mongoOrm } from '@prisma/orm-mongo/orm';
 
 const context = createMongoExecutionContext({ contract, stack });
@@ -469,15 +443,19 @@ After:
 
 ```ts
 import {
-  buildMongoEnums,
-  createMongoExecutionContext,
-  createMongoRuntime,
+	buildMongoEnums,
+	createMongoExecutionContext,
+	createMongoRuntime,
 } from '@prisma/orm-mongo/family-runtime';
 import { mongoOrm } from '@prisma/orm-mongo/orm';
 
 const context = createMongoExecutionContext({ contract, stack });
 const runtime = createMongoRuntime({ context, driver });
-const orm = mongoOrm({ contract, executor: runtime, enums: buildMongoEnums(contract, context.codecs) });
+const orm = mongoOrm({
+	contract,
+	executor: runtime,
+	enums: buildMongoEnums(contract, context.codecs),
+});
 ```
 
 `buildMongoEnums` refuses a contract whose enum codec the context lacks with `RUNTIME.CODEC_DESCRIPTOR_MISSING`. `createMongoCollection()` takes the accessors as its fourth argument, before the optional `mutationDefaults`: change `createMongoCollection(contract, 'User', executor, mutationDefaults)` to `createMongoCollection(contract, 'User', executor, enums, mutationDefaults)`. `mongoOrm()` refuses `enums` that lack an accessor for an enum the contract declares with `ORM.ARGUMENT_INVALID` when it is called; `createMongoCollection()` refuses a write of an enum field whose accessor is missing from `enums` with the same error.
@@ -735,10 +713,10 @@ The ORM client's collections gain four methods that lock the rows a read selects
 
 ```ts
 await db.transaction(async (tx) => {
-  const job = await tx.orm.public.Job.where({ state: 'queued' })
-    .orderBy((j) => j.createdAt.asc())
-    .forUpdate({ skipLocked: true })
-    .first();
+	const job = await tx.orm.public.Job.where({ state: 'queued' })
+		.orderBy((j) => j.createdAt.asc())
+		.forUpdate({ skipLocked: true })
+		.first();
 });
 ```
 

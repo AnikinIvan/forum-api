@@ -1,51 +1,39 @@
-import 'temporal-polyfill/global'
+import 'temporal-polyfill/global';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
 import express from 'express';
-import cors from 'cors'
-import { PostRepositories } from './repositories/post.js';
-import { PostServices } from './services/post.js';
-import { PostHandler } from './transport/handlers/post.js';
-import { PostRouter } from './transport/routers/post.js';
-import { UserRouter } from './transport/routers/user.js';
-import { createUserHandler } from './transport/handlers/user.js';
-import { UserServices } from './services/user.js';
-import { UserRepositories } from './repositories/user.js';
-import { db } from './prisma/db.js';
-import type { PasswordHash } from './services/user.types.js';
 import { hashPassword, verifyPassword } from './lib/hashpassword.js';
-import { hashRefreshToken, signAccessToken, signRefreshToken, verifyRefreshToken } from './lib/jwt.js'
-import cookieParser from 'cookie-parser'
-import { createRefreshSessionRepository } from './repositories/refreshSession.js';
+import type { PasswordHash } from './services/auth.types.js';
+import { config } from './config.js';
+import { PostModules} from './modules/post.js';
+import { UserModules} from './modules/auth.js';
+import { createJwt } from './lib/jwt.js';
+
+const app = express();
+const PORT = 3000;
+const tokenService = createJwt();
 
 
-const app = express()
-const PORT = 3000
-app.use(cookieParser())
+app.use(cookieParser());
 
 const passwordHash: PasswordHash = {
-    hash: hashPassword,
-    verify: verifyPassword,
-}
+	hash: hashPassword,
+	verify: verifyPassword,
+};
 
-const repository = PostRepositories()
-const service = PostServices(repository)
-const handlers = PostHandler(service)
-const router = PostRouter(handlers)
-const userRepository = UserRepositories(db)
-const refreshSessionRepository = createRefreshSessionRepository(db)
-const userService = UserServices(userRepository, passwordHash, { signAccessToken, signRefreshToken, verifyRefreshToken },refreshSessionRepository,{ hash: hashRefreshToken })
-const userHandler = createUserHandler(userService)
-const userRouter = UserRouter(userHandler)
+app.use(express.json());
+app.use(cors({ origin: config.origin, credentials: true }));
+app.use('/posts', PostModules());
+app.use('/user', UserModules(tokenService));
 
-app.use(express.json())
-app.use(cors({origin:'http://localhost:5173', credentials:true}))
-app.use('/posts', router)
-app.use('/user', userRouter)
-
-
-app.listen(PORT, () => {
-    console.log(`Сервер работает.`);
+app.listen(config.port, () => {
+	console.log(`Сервер работает на порту ${config.port}.`);
 });
 
 function hashToken(token: string): string {
-    throw new Error('Function not implemented.');
+	throw new Error('Function not implemented.');
 }
+
+// Комментарий : 
+// Тут я поубирал лишнее, прям выглядит сладко теперь.
+// Добавил app.use с функциями из src/modules.
