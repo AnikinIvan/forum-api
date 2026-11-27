@@ -1,105 +1,100 @@
 ---
+
 from: "8.0.0-rc.12"
 to: "8.0.0-rc.13"
 changes:
-  - id: execution-ref-entry-field
-    summary: |
-      Each entry in `contract.execution.mutations.defaults` now names its target as
-      `ref: { namespace, entry, field }` instead of `ref: { namespace, table, column }`. The values
-      are the same table and column names. Re-emit the contract; code that reads `.ref.table` or
-      `.ref.column` reads `.ref.entry` and `.ref.field`.
-    detection:
-      glob: "**/*.{json,ts,mts,cts}"
+
+- id: execution-ref-entry-field
+  summary: |
+  Each entry in `contract.execution.mutations.defaults` now names its target as
+  `ref: { namespace, entry, field }` instead of `ref: { namespace, table, column }`. The values
+  are the same table and column names. Re-emit the contract; code that reads `.ref.table` or
+  `.ref.column` reads `.ref.entry` and `.ref.field`.
+  detection:
+  glob: "**/_.{json,ts,mts,cts}"
       matches:
-        - '"ref"\s*:\s*\{(?![^{}]*"kind")[^{}]*"(?:table|column)"\s*:'
-        - '\.ref\??\.(?:table|column)\b'
-        - '\bref\s*:\s*\{(?![^{}]*\bkind\b)[^{}]*\b(?:table|column)\s*:[^{}]*\b(?:table|column)\s*:'
-    script: ./scripts/execution-ref-entry-field/rename-execution-ref-keys.ts
-  - id: ts-defaults-encoded-by-codec
-    summary: |
-      `defineContract` from the Postgres and SQLite packages now encodes every literal `.default(value)` through the column's codec. The literal is the codec's input type. TypeScript checks it for fields built inside the `defineContract` factory, and the build fails with `CONTRACT.DEFAULT_INVALID` for a value the codec refuses. Pass a value of the codec's input type, or choose the field preset whose codec takes the value you have.
-    detection:
-      glob: "**/*.{ts,mts,cts}"
+        - '"ref"\s_:\s*\{(?![^{}]_"kind")[^{}]_"(?:table|column)"\s*:' - '\.ref\??\.(?:table|column)\b' - '\bref\s*:\s*\{(?![^{}]_\bkind\b)[^{}]_\b(?:table|column)\s*:[^{}]_\b(?:table|column)\s_:'
+  script: ./scripts/execution-ref-entry-field/rename-execution-ref-keys.ts
+- id: ts-defaults-encoded-by-codec
+  summary: |
+  `defineContract` from the Postgres and SQLite packages now encodes every literal `.default(value)` through the column's codec. The literal is the codec's input type. TypeScript checks it for fields built inside the `defineContract` factory, and the build fails with `CONTRACT.DEFAULT_INVALID` for a value the codec refuses. Pass a value of the codec's input type, or choose the field preset whose codec takes the value you have.
+  detection:
+  glob: "**/_.{ts,mts,cts}"
       matches:
-        - '\.default\(\s*(?!now\(\)|autoincrement\(\)|sql`)'
-  - id: contract-format-formats-prisma7-schema
-    summary: prisma contract format now formats a Prisma 7 schema configured through prisma7Schema().
-  - id: config-contract-source-requires-format
-    summary: A contract source object written in prisma.config.ts must declare format 'psl' or 'typescript'.
-  - id: policy-expression-json-escapes
-    summary: A policy expression in a PSL contract decodes every JSON escape, so \t, \b, \f, \/ and \uXXXX no longer read as written.
-  - id: cursor-rejects-expression-orders
-    summary: "cursor() now throws ORM.ARGUMENT_INVALID when an active orderBy item is not a plain column (extension-operation orders such as vector distance were previously dropped from the keyset silently)"
-    detection:
-      glob: "**/*.{ts,mts,cts}"
+        - '\.default\(\s_(?!now\(\)|autoincrement\(\)|sql`)'
+- id: contract-format-formats-prisma7-schema
+  summary: prisma contract format now formats a Prisma 7 schema configured through prisma7Schema().
+- id: config-contract-source-requires-format
+  summary: A contract source object written in prisma.config.ts must declare format 'psl' or 'typescript'.
+- id: policy-expression-json-escapes
+  summary: A policy expression in a PSL contract decodes every JSON escape, so \t, \b, \f, \/ and \uXXXX no longer read as written.
+- id: cursor-rejects-expression-orders
+  summary: "cursor() now throws ORM.ARGUMENT_INVALID when an active orderBy item is not a plain column (extension-operation orders such as vector distance were previously dropped from the keyset silently)"
+  detection:
+  glob: "**/*.{ts,mts,cts}"
+  matches: - '\.cursor\('
+- id: mongo-codec-subpaths-move-to-target
+  summary: |
+  The Mongo codec subpaths moved from the adapter to the target:
+  `adapter/codec-types`, `adapter/codecs`, `adapter/codec-ids` and `adapter/data-types` under
+  `@prisma/orm-mongo` and `@prisma/orm-target-mongo` are now `target/...`. Emitted
+  `contract.d.ts` files, including migration snapshots, import `adapter/codec-types` until
+  rewritten or re-emitted. Under `skipLibCheck: true` that import fails silently and the
+  contract's field types turn wrong where they are used, instead of failing to compile.
+  detection:
+  glob: "**/*.{ts,mts,cts,md}"
+  matches: - '@prisma/orm-(?:target-)?mongo/adapter/(?:codec-types|codecs|codec-ids|data-types)(?![\w-])'
+- id: create-mongo-runner-deps-removed
+  summary: |
+  `createMongoRunnerDeps(...)` is removed from `@prisma/orm-mongo/adapter/control`. Build the
+  runner dependencies with `new MongoControlAdapterImpl().createRunnerDependencies(controlDriver)`.
+  detection:
+  glob: "**/*.{ts,mts,cts}"
+  matches: - '\bcreateMongoRunnerDeps\b'
+- id: mongo-runner-dependency-types-move-to-family
+  summary: |
+  `MongoRunnerDependencies` and `MarkerOperations` are no longer exported from
+  `adapter/control` or `target/control`; import them from `@prisma/orm-mongo/family/control-adapter`.
+  detection:
+  glob: "**/_.{ts,mts,cts}"
       matches:
-        - '\.cursor\('
-  - id: mongo-codec-subpaths-move-to-target
-    summary: |
-      The Mongo codec subpaths moved from the adapter to the target:
-      `adapter/codec-types`, `adapter/codecs`, `adapter/codec-ids` and `adapter/data-types` under
-      `@prisma/orm-mongo` and `@prisma/orm-target-mongo` are now `target/...`. Emitted
-      `contract.d.ts` files, including migration snapshots, import `adapter/codec-types` until
-      rewritten or re-emitted. Under `skipLibCheck: true` that import fails silently and the
-      contract's field types turn wrong where they are used, instead of failing to compile.
-    detection:
-      glob: "**/*.{ts,mts,cts,md}"
+        - '\b(?:MongoRunnerDependencies|MarkerOperations)\b[^;]_?from\s*[''"]@prisma/orm-(?:target-)?mongo/(?:adapter|target)/control[''"]'
+- id: mongo-create-runner-needs-adapter-on-stack
+  summary: |
+  `mongoTargetDescriptor.migrations.createRunner(family)` now reaches the database through the
+  control adapter on the family's control stack. A family instance created from an empty
+  stack (`createMongoFamilyInstance({} as ...)`), or from a `createControlStack(...)` with no
+  `adapter`, fails with "Mongo family requires an adapter descriptor in ControlStack" when the
+  runner executes.
+  detection:
+  glob: "**/_.{ts,mts,cts}"
       matches:
-        - '@prisma/orm-(?:target-)?mongo/adapter/(?:codec-types|codecs|codec-ids|data-types)(?![\w-])'
-  - id: create-mongo-runner-deps-removed
-    summary: |
-      `createMongoRunnerDeps(...)` is removed from `@prisma/orm-mongo/adapter/control`. Build the
-      runner dependencies with `new MongoControlAdapterImpl().createRunnerDependencies(controlDriver)`.
-    detection:
-      glob: "**/*.{ts,mts,cts}"
-      matches:
-        - '\bcreateMongoRunnerDeps\b'
-  - id: mongo-runner-dependency-types-move-to-family
-    summary: |
-      `MongoRunnerDependencies` and `MarkerOperations` are no longer exported from
-      `adapter/control` or `target/control`; import them from `@prisma/orm-mongo/family/control-adapter`.
-    detection:
-      glob: "**/*.{ts,mts,cts}"
-      matches:
-        - '\b(?:MongoRunnerDependencies|MarkerOperations)\b[^;]*?from\s*[''"]@prisma/orm-(?:target-)?mongo/(?:adapter|target)/control[''"]'
-  - id: mongo-create-runner-needs-adapter-on-stack
-    summary: |
-      `mongoTargetDescriptor.migrations.createRunner(family)` now reaches the database through the
-      control adapter on the family's control stack. A family instance created from an empty
-      stack (`createMongoFamilyInstance({} as ...)`), or from a `createControlStack(...)` with no
-      `adapter`, fails with "Mongo family requires an adapter descriptor in ControlStack" when the
-      runner executes.
-    detection:
-      glob: "**/*.{ts,mts,cts}"
-      matches:
-        - 'createMongoFamilyInstance\(\s*\{\s*\}'
-        - 'createControlStack\(\s*\{(?:(?!adapter)[^}])*mongoTargetDescriptor(?:(?!adapter)[^}])*\}\s*\)'
-  - id: mongo-psl-scalar-names
-    summary: |
-      Four Mongo PSL scalar names are deprecated in favour of the name of the BSON type they store:
-      `Int` → `Int32`, `Float` → `Double`, `Boolean` → `Bool`, `DateTime` → `Date`. The old names
-      are still accepted, with a `PSL_DEPRECATED_SCALAR_NAME` warning, and will be removed in a later
-      release; rename them now. Codec ids, `contract.json` and every hash are unchanged. Rename only
-      in the Prisma 8 contract source and its `migrations/app/*/contract.prisma` copies, never in a
-      Prisma 6 `schema.prisma`.
-    detection:
-      glob: "**/*.prisma"
-      matches:
-        - '(?<![\s\S])(?![\s\S]*\bprovider\s*=\s*"mongodb")[\s\S]*?(?:^|\n)[ \t]*[A-Za-z_][A-Za-z0-9_]*[ \t]+(?:Int|Float|Boolean|DateTime)(?:\[\])?\??(?![ \t]*\{)(?=\s|$)'
-  - id: mongo-variant-field-codecs
-    summary: |
-      Through `.variant(...)`, a field declared only on the variant model is now written and read
-      through its codec, as base-model fields always were. An `ObjectId` field there is stored as
-      an `ObjectId` and read back as a hex string, and a where filter on it encodes a hex string.
-  - id: contract-artifacts-restamp
-    summary: |
-      The emitted `contract.json` / `contract.d.ts` embed the toolchain version, which moves
-      to 8.0.0-rc.13. Run `contract emit` once after upgrading so the emitted artifacts match
-      the installed toolchain.
-    detection:
-      glob: "**/contract.json"
-      contains:
-        - '"version": "8.0.0-rc.12"'
+        - 'createMongoFamilyInstance\(\s_\{\s*\}' - 'createControlStack\(\s*\{(?:(?!adapter)[^}])_mongoTargetDescriptor(?:(?!adapter)[^}])_\}\s*\)'
+- id: mongo-psl-scalar-names
+  summary: |
+  Four Mongo PSL scalar names are deprecated in favour of the name of the BSON type they store:
+  `Int` → `Int32`, `Float` → `Double`, `Boolean` → `Bool`, `DateTime` → `Date`. The old names
+  are still accepted, with a `PSL_DEPRECATED_SCALAR_NAME` warning, and will be removed in a later
+  release; rename them now. Codec ids, `contract.json` and every hash are unchanged. Rename only
+  in the Prisma 8 contract source and its `migrations/app/*/contract.prisma` copies, never in a
+  Prisma 6 `schema.prisma`.
+  detection:
+  glob: "**/*.prisma"
+  matches: - '(?<![\s\S])(?![\s\S]*\bprovider\s*=\s*"mongodb")[\s\S]*?(?:^|\n)[ \t]*[A-Za-z_][A-Za-z0-9_]*[ \t]+(?:Int|Float|Boolean|DateTime)(?:\[\])?\??(?![ \t]*\{)(?=\s|$)'
+- id: mongo-variant-field-codecs
+  summary: |
+  Through `.variant(...)`, a field declared only on the variant model is now written and read
+  through its codec, as base-model fields always were. An `ObjectId` field there is stored as
+  an `ObjectId` and read back as a hex string, and a where filter on it encodes a hex string.
+- id: contract-artifacts-restamp
+  summary: |
+  The emitted `contract.json` / `contract.d.ts` embed the toolchain version, which moves
+  to 8.0.0-rc.13. Run `contract emit` once after upgrading so the emitted artifacts match
+  the installed toolchain.
+  detection:
+  glob: "**/contract.json"
+  contains: - '"version": "8.0.0-rc.12"'
+
 ---
 
 # 8.0.0-rc.12 → 8.0.0-rc.13 — User upgrade instructions
@@ -132,7 +127,7 @@ A contract with generated defaults (`temporal.createdAt()`, `temporal.updatedAt(
 
 ## `ts-defaults-encoded-by-codec`
 
-A TypeScript contract used to store the value passed to `.default(value)` as it stood. The column's codec now encodes it, so the value must be the codec's input type. For a field built inside the `defineContract` factory, `.default()` is typed with that input type, so a wrong value is a type error in `contract.ts`. PSL contracts, `.default(now())`, `.default(autoincrement())` and `` .default(sql`...`) `` are not affected.
+A TypeScript contract used to store the value passed to `.default(value)` as it stood. The column's codec now encodes it, so the value must be the codec's input type. For a field built inside the `defineContract` factory, `.default()` is typed with that input type, so a wrong value is a type error in `contract.ts`. PSL contracts, `.default(now())`, `.default(autoincrement())` and ``.default(sql`...`)`` are not affected.
 
 What now fails, on Postgres:
 
@@ -149,11 +144,11 @@ CONTRACT.DEFAULT_INVALID: Field "Event.createdAt" has a default that its codec r
 2. Type-check the contract file, then run `prisma contract emit`. TypeScript reports a default of the wrong type; the emit reports each default the codec refuses, with its model and field.
 3. For each one, either pass the codec's type or change the preset:
 
-| You have | Write |
-| --- | --- |
-| an ISO 8601 string | `field.temporal.timestamptzString().default('2024-01-01T00:00:00Z')` |
-| a JavaScript `Date` | `field.temporal.timestamptzJsDate().default(new Date('2024-01-01T00:00:00Z'))` |
-| a `Temporal.Instant` | `field.dateTime().default(Temporal.Instant.from('2024-01-01T00:00:00Z'))` |
+| You have             | Write                                                                          |
+| -------------------- | ------------------------------------------------------------------------------ |
+| an ISO 8601 string   | `field.temporal.timestamptzString().default('2024-01-01T00:00:00Z')`           |
+| a JavaScript `Date`  | `field.temporal.timestamptzJsDate().default(new Date('2024-01-01T00:00:00Z'))` |
+| a `Temporal.Instant` | `field.dateTime().default(Temporal.Instant.from('2024-01-01T00:00:00Z'))`      |
 
 Changing the preset changes the column's codec, and so the type your queries read and write for that field. On Postgres, `field.bigint()` takes a `bigint` and `field.bytes()` takes a `Uint8Array`. On SQLite, `field.temporal.datetime()` takes a `Date`, `field.column(bigintColumn)` takes a `bigint` and `field.column(blobColumn)` takes a `Uint8Array`.
 
@@ -165,11 +160,11 @@ A JavaScript `number` on a `bigint` field (codec `pg/int8@1`), such as `field.bi
 
 A default that gets past the type check, for example from an untyped caller, is stored in a different form than before:
 
-| Default | Stored before | Stored now |
-| --- | --- | --- |
-| `field.bigint().default(1)` (also SQLite `bigintColumn`) | `1` | `"1"` |
-| `field.bytes().default('x')` | `"x"` | `"eA=="` (base64) |
-| SQLite `blobColumn` with `.default('x')` | `"x"` | `"78"` (hex) |
+| Default                                                  | Stored before | Stored now        |
+| -------------------------------------------------------- | ------------- | ----------------- |
+| `field.bigint().default(1)` (also SQLite `bigintColumn`) | `1`           | `"1"`             |
+| `field.bytes().default('x')`                             | `"x"`         | `"eA=="` (base64) |
+| SQLite `blobColumn` with `.default('x')`                 | `"x"`         | `"78"` (hex)      |
 
 A contract with such a default emits a different `contract.json` and a different storage hash. Re-emit the contract and review the diff of `contract.json`.
 
@@ -222,12 +217,12 @@ For each `.cursor(` call on a `db.orm` chain that also calls `.orderBy(`, look a
 
 The Mongo target package owns the codecs now. Rewrite each specifier, in every file that names it (source, emitted `contract.d.ts`, the `contract.d.ts` in each `migrations/snapshots/<hash>/` directory, and docs):
 
-| Before | After |
-| --- | --- |
-| `@prisma/orm-mongo/adapter/codec-types` | `@prisma/orm-mongo/target/codec-types` |
-| `@prisma/orm-mongo/adapter/codecs` | `@prisma/orm-mongo/target/codecs` |
-| `@prisma/orm-mongo/adapter/codec-ids` | `@prisma/orm-mongo/target/codec-ids` |
-| `@prisma/orm-mongo/adapter/data-types` | `@prisma/orm-mongo/target/data-types` |
+| Before                                         | After                                         |
+| ---------------------------------------------- | --------------------------------------------- |
+| `@prisma/orm-mongo/adapter/codec-types`        | `@prisma/orm-mongo/target/codec-types`        |
+| `@prisma/orm-mongo/adapter/codecs`             | `@prisma/orm-mongo/target/codecs`             |
+| `@prisma/orm-mongo/adapter/codec-ids`          | `@prisma/orm-mongo/target/codec-ids`          |
+| `@prisma/orm-mongo/adapter/data-types`         | `@prisma/orm-mongo/target/data-types`         |
 | `@prisma/orm-target-mongo/adapter/<same four>` | `@prisma/orm-target-mongo/target/<same four>` |
 
 The exported names are unchanged. For the application's own `contract.d.ts`, running `prisma contract emit` produces the same result as the rewrite. Snapshot `contract.d.ts` files under `migrations/snapshots/` are not re-emitted, so rewrite them. The contract JSON and every hash stay the same.
@@ -238,16 +233,23 @@ Do not rely on `tsc` to find the `contract.d.ts` files. They are declaration fil
 
 ```ts
 // before
-import { createMongoRunnerDeps, extractDb } from '@prisma/orm-mongo/adapter/control';
+import {
+	createMongoRunnerDeps,
+	extractDb,
+} from '@prisma/orm-mongo/adapter/control';
 import { MongoDriverImpl } from '@prisma/orm-mongo/driver';
 const runner = new MongoMigrationRunner(
-  createMongoRunnerDeps(controlDriver, MongoDriverImpl.fromDb(extractDb(controlDriver)), family),
+	createMongoRunnerDeps(
+		controlDriver,
+		MongoDriverImpl.fromDb(extractDb(controlDriver)),
+		family,
+	),
 );
 
 // after
 import { MongoControlAdapterImpl } from '@prisma/orm-mongo/adapter/control';
 const runner = new MongoMigrationRunner(
-  new MongoControlAdapterImpl().createRunnerDependencies(controlDriver),
+	new MongoControlAdapterImpl().createRunnerDependencies(controlDriver),
 );
 ```
 
@@ -263,12 +265,19 @@ Build the family instance from a control stack that includes the Mongo adapter:
 
 ```ts
 import mongoAdapter from '@prisma/orm-mongo/adapter/control';
-import { createMongoFamilyInstance, mongoFamilyDescriptor } from '@prisma/orm-mongo/family/control';
+import {
+	createMongoFamilyInstance,
+	mongoFamilyDescriptor,
+} from '@prisma/orm-mongo/family/control';
 import { createControlStack } from '@prisma/orm-mongo/components/control';
 import { mongoTargetDescriptor } from '@prisma/orm-mongo/target/control';
 
 const family = createMongoFamilyInstance(
-  createControlStack({ family: mongoFamilyDescriptor, target: mongoTargetDescriptor, adapter: mongoAdapter }),
+	createControlStack({
+		family: mongoFamilyDescriptor,
+		target: mongoTargetDescriptor,
+		adapter: mongoAdapter,
+	}),
 );
 ```
 
@@ -284,12 +293,12 @@ Never rename in a Prisma 6 `schema.prisma`, such as one kept beside the Prisma 8
 
 In each field whose type is one of the deprecated names, replace the type name, keeping any `[]` and `?`:
 
-| Deprecated | Use | Stored as |
-| --- | --- | --- |
-| `Int` | `Int32` | BSON int |
-| `Float` | `Double` | BSON double |
-| `Boolean` | `Bool` | BSON bool |
-| `DateTime` | `Date` | BSON date |
+| Deprecated | Use      | Stored as   |
+| ---------- | -------- | ----------- |
+| `Int`      | `Int32`  | BSON int    |
+| `Float`    | `Double` | BSON double |
+| `Boolean`  | `Bool`   | BSON bool   |
+| `DateTime` | `Date`   | BSON date   |
 
 ```prisma
 // before
